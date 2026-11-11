@@ -101,7 +101,7 @@ rolling out, and search results do not carry live per-variant stock.
 - **Eval run logs** (`eval/runs/`) are git-ignored. Commit the real run's logs as evidence for the README numbers?
 - **Order table extras**: added `approval_url` (so a second Confirm returns the same link without calling PayPal) and `note` (the reason shown for a failure). Not in the data section of requirements.
 - **New modules not in the suggested layout**: `app/checkout.py` (money flow: confirm, return, cancel, refund, so `main.py` stays thin and the flow is unit-testable), `app/money.py` (cents helpers), `app/paypal_mock.py` and `app/mock_agent.py` (keyless stand-ins kept out of the real code paths).
-- **New preference starting strength is 0.5** (requirements fix only +0.1 / -0.2). A new 'contradicts' without an ID starts at -0.5. A preference inferred from a purchase starts at 0.2 and is scoped to the product's category (owner approved, 2026-11-11).
+- **Preference strengths: decided** (owner, 2026-11-11). Set in code, not by the model: a stated preference starts at 0.5 (-0.5 for a new 'contradicts' without an ID), one inferred from a purchase at 0.2 and scoped to its category; +0.1 / -0.2 per confirmation / contradiction. The model only decides whether to save, the sentence, and supports vs contradicts.
 - **Preference adherence = top recommendation contains the keyword** (title or brand). Requirements do not define 'respects'; top-1 is the strict choice. OK?
 - **App default for `rank_shuffles` is 3** (so the app uses F17 by default, 3x ranking cost). Set to 1 for cheaper demos?
 - **Budget question is a prompt rule only** (F2). Code does not stop the model from searching without a budget; ask accuracy in the eval measures it. Add a code guard?
