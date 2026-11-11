@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
-from app import agent, catalog, checkout, llm, paypal, paypal_mock, store
+from app import agent, catalog, checkout, llm, memory, paypal, paypal_mock, store
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="PayPal Shopping Agent")
@@ -72,6 +72,24 @@ def chat(body: ChatIn, request: Request):
 def new_conversation(request: Request):
     """F19: a fresh conversation; saved preferences will be applied to its recommendations."""
     store.new_conversation(request.state.user_id)
+    return {"ok": True}
+
+
+@app.get("/api/memory")
+def list_memory(request: Request):
+    """F20: everything remembered about this user, strongest first."""
+    return [{"id": p["id"], "text": p["text"], "strength": p["strength"], "evidence_count": p["evidence_count"]}
+            for p in memory.list_preferences(request.state.user_id)]
+
+
+@app.delete("/api/memory/{pref_id}")
+def delete_memory(pref_id: int, request: Request):
+    """F20: the user deletes one entry. It also stops applying to the current conversation."""
+    if not memory.delete(request.state.user_id, pref_id):
+        raise HTTPException(404, "Not found")
+    session = store.get_session(request.state.user_id)
+    if session.memory_profile:
+        session.memory_profile = [m for m in session.memory_profile if m["id"] != pref_id]
     return {"ok": True}
 
 

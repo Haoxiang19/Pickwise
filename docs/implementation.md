@@ -317,3 +317,20 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_memory.py`: profile is the top 3 positive; the ranker prompt contains the memory section; a valid memory ID adds the memory text to the reason and an unknown one is ignored; with memory off the section is absent; memory cannot rescue an over-budget product; keyless end to end: "I always buy Soundcore", New conversation, then headphones put Soundcore first with the memory in the reason. `tests/test_eval.py`: 4 preference requests, adherence on the top product. By hand: the same flow in the browser; `python -m eval.run_eval --name mock-f19 --runs 1` (keyless) appended the preference entries to the mock snapshot and printed the memory column (mock numbers, not results).
 
 **Limits / not verified.** No real model run: whether the ranker uses memories sensibly, and whether conversation 1 saves them, is unmeasured. The profile is fixed at the start of a conversation, so a preference saved mid-conversation applies from the next one. Adherence checks only the top product and a keyword in title or brand. Memory is in SQLite on the server, so a Render restart loses it.
+
+## F20 Preference memory: view and delete (`app/main.py`, `app/memory.py`, `static/index.html`)
+
+**What it does.** A "What I remember" panel lists every saved preference of the user with its strength and a Delete button.
+
+**Where.** `app/memory.py`: `delete`. `app/main.py`: `GET /api/memory`, `DELETE /api/memory/{id}`. `static/index.html`: `loadMemory`, the `#memory` panel; `api()` now takes an optional HTTP method.
+
+**How it works.**
+1. On page load, and after any chat turn where a tool changed memory (`memory_changed`), the page calls `GET /api/memory`, which returns this user's entries (ID, text, strength, evidence count), strongest first.
+2. Each entry is shown with `textContent` (never as HTML) and a Delete button that disables itself on click.
+3. `DELETE /api/memory/{id}` runs `DELETE ... WHERE id = ? AND user_id = ?`, so a user can only delete their own entries (otherwise 404). It also removes the entry from the current conversation's profile, so it stops influencing recommendations at once.
+
+**Why.** Users must be able to see and remove what is kept about them; filtering by the cookie's user ID in SQL is the same ownership rule as for orders. Deletion is a hard delete, because the user asked for that entry to be gone.
+
+**Verified.** `tests/test_memory.py`: list shows the saved entry; another browser sees nothing and cannot delete it (404); delete works once, then 404; a deleted memory stops appearing in reasons in the same conversation. By hand (keyless): the panel showed "Prefers Soundcore (strength 0.5)"; Delete emptied the list.
+
+**Limits.** No undo. Strength is shown as a raw number. Not checked at phone width.

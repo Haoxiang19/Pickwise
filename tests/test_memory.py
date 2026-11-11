@@ -159,3 +159,34 @@ def test_new_conversation_uses_saved_preference_in_keyless_mode():
     assert top["brand"] == "Soundcore" and top["memory_used"] == "Prefers Soundcore"
     assert 'Based on what I remember: "Prefers Soundcore"' in top["reason"]
     assert s.memory_profile and s.history[0]["content"] == "noise cancelling headphones under $100"
+
+
+# --- F20 view and delete ---
+
+def test_memory_endpoints_view_and_delete_own_entries_only():
+    from fastapi.testclient import TestClient
+    from app import main
+    client = TestClient(main.app)
+    client.post("/api/chat", json={"message": "I always buy Soundcore"})
+    [entry] = client.get("/api/memory").json()
+    assert entry["text"] == "Prefers Soundcore" and entry["strength"] == 0.5
+    other = TestClient(main.app)
+    assert other.get("/api/memory").json() == []
+    assert other.delete(f"/api/memory/{entry['id']}").status_code == 404  # not theirs
+    assert client.delete(f"/api/memory/{entry['id']}").json() == {"ok": True}
+    assert client.get("/api/memory").json() == []
+    assert client.delete(f"/api/memory/{entry['id']}").status_code == 404
+
+
+def test_deleted_memory_stops_applying_to_current_conversation():
+    from fastapi.testclient import TestClient
+    from app import main
+    client = TestClient(main.app)
+    client.post("/api/chat", json={"message": "I always buy Soundcore"})
+    client.post("/api/conversation/new")
+    pref_id = client.get("/api/memory").json()[0]["id"]
+    first = client.post("/api/chat", json={"message": "noise cancelling headphones under $100"}).json()
+    assert first["recommendations"][0]["memory_used"] == "Prefers Soundcore"
+    client.delete(f"/api/memory/{pref_id}")
+    again = client.post("/api/chat", json={"message": "also no JBL"}).json()
+    assert all(r["memory_used"] is None for r in again["recommendations"])

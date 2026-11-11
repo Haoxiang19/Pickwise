@@ -20,10 +20,11 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - F17 multi-shuffle ranking (3 shuffles in parallel, mean rank, unlisted = 7); eval row "+ multi-shuffle".
 - F18 preference memory write (`app/memory.py`, `remember_preference` tool, purchase writes "Likes the brand X").
 - F19 memory use: profile (top 3 positive) fixed per conversation, ranker-only soft preference, reason names the memory; New conversation button; eval adds 4 preference requests and the "+ memory" version.
-- State: 132 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund.
+- F20 'What I remember' panel: list and delete own entries (`GET/DELETE /api/memory`). **M5 done in keyless mode.**
+- State: 134 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
-- M5 (owner approved on 2026-11-11): F17, F18, F19 done; next F20 'What I remember' panel (view and delete).
+- Nothing. M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode. P2 not started.
 
 ## Next steps for the owner (in order)
 1. Put keys in `.env` (copy `.env.example`; never commit it): `LLM_*`, `CHANNEL3_API_KEY`, `PAYPAL_CLIENT_ID/SECRET`. For DeepSeek set `LLM_EXTRA_BODY={"thinking": {"type": "disabled"}}`. Note: the app reads environment variables only; it does not load `.env` by itself (no extra dependency). Export them in the shell, or use `uvicorn --env-file .env` (needs the `python-dotenv` package, not installed).
@@ -31,10 +32,11 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 3. Check DeepSeek function calling with the app: does it ask for the budget, call `recommend` with good queries, keep earlier conditions on refine.
 4. One real sandbox payment with a sandbox personal account (M2 done-criterion). Check: `payer-action` link, read-back status `APPROVED`, capture status, refund status.
 5. Impeccable design (`/impeccable init`, `craft`, `audit`), then deploy to Render with `APP_BASE_URL` set to the public URL.
-6. Real eval: `python -m eval.run_eval --name full` (with both model and Channel3 keys it creates `eval/snapshot.json` once), label `runs/full/to_label.json` into `eval/labels.json`, run again for NDCG@3.
+6. Real eval: `python -m eval.run_eval --name full` (with both model and Channel3 keys it creates `eval/snapshot.json` once), label `runs/full/to_label.json` into `eval/labels.json`, run again for NDCG@3. The table now has 5 versions (incl. + multi-shuffle and + memory) and a memory-adherence column.
+7. Still missing for submission: README (PayPal endpoints, concierge-style simulation note, eval table, known limits), AI-tools description, video. The page also does not yet show the concierge-simulation note required in requirements section 1.
 
 ## Not verified (needs real services)
-- No real model call made yet: function calling on DeepSeek, model ID, `usage` field names, ranking JSON quality.
+- No real model call made yet: function calling on DeepSeek, model ID, `usage` field names, ranking JSON quality, whether it saves/uses preferences sensibly, cost of 3 parallel ranking calls.
 - No real Channel3 call: field names and the dollar unit of `offers[].price.price`.
 - No real PayPal sandbox call: token, create (`payer-action` link), get, capture, refund are tested only against fakes and the mock. PayPal's real error body shape and the query parameters it appends to return/cancel URLs are not observed.
 - Render deploy, phone-width layout, `secure` cookie behind Render's proxy.

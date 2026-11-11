@@ -100,3 +100,10 @@ def prompt_block(user_id: str) -> str:
 def profile(user_id: str) -> list[dict]:
     """F19: the strongest positive preferences, as given to the ranker at the start of a conversation."""
     return [{"id": p["id"], "text": p["text"]} for p in list_preferences(user_id) if p["strength"] > 0][:PROFILE_SIZE]
+
+
+def delete(user_id: str, pref_id: int) -> bool:
+    """F20: delete one preference of this user. Returns False if there is no such preference."""
+    with closing(_connect()) as conn, conn:
+        cur = conn.execute("DELETE FROM preferences WHERE id = ? AND user_id = ?", (pref_id, user_id))
+    return cur.rowcount == 1

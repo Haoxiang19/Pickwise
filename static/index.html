@@ -21,6 +21,9 @@
   .summary td:last-child { text-align: right; }
   .result { border-radius: 8px; padding: 12px; margin: 8px 0; border: 2px solid #b00020; background: #fff; }
   .result.ok { border-color: #1e7e34; }
+  #memory { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 4px 12px; margin: 8px 0; font-size: .9rem; }
+  #memory li { margin: 4px 0; }
+  #memory button { font-size: .8rem; padding: 2px 8px; margin-left: 6px; }
   .total td { font-weight: 700; border-top: 1px solid #ccc; padding-top: 6px; }
   details { margin: 8px 0; font-size: .9rem; }
   form { display: flex; gap: 8px; position: sticky; bottom: 0; background: #fafafa; padding: 8px 0; }
@@ -33,6 +36,7 @@
 <h1>Shopping Agent</h1>
 <div id="badges"></div>
 <button id="new-chat" type="button">New conversation</button>
+<details id="memory"><summary>What I remember</summary><ul id="memory-list"></ul></details>
 <div id="log"></div>
 <form id="form">
   <input id="input" type="text" placeholder="Describe what you need, e.g. running shoes under $100" autocomplete="off" required>
@@ -51,8 +55,9 @@ function el(tag, text, cls) {
 const dollars = cents => "$" + (cents / 100).toFixed(2);
 function add(node) { log.appendChild(node); node.scrollIntoView({block: "end"}); return node; }
 
-async function api(path, body) {
-  const res = await fetch(path, body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+async function api(path, body, method) {
+  const options = method ? {method} : body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const res = await fetch(path, options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || res.statusText);
   return data;
@@ -142,6 +147,7 @@ async function send(text) {
   if (data.cart) showSummary(data.cart);
   if (data.orders) data.orders.forEach(showOrder);
   if (data.refund_draft) showRefundDraft(data.refund_draft);
+  if (data.memory_changed) loadMemory();
 }
 
 document.getElementById("form").addEventListener("submit", async e => {
@@ -154,11 +160,30 @@ document.getElementById("form").addEventListener("submit", async e => {
   button.disabled = false; input.focus();
 });
 
+// F20: view and delete saved preferences.
+async function loadMemory() {
+  const list = document.getElementById("memory-list");
+  const prefs = await api("/api/memory");
+  list.textContent = "";
+  if (!prefs.length) list.appendChild(el("li", "Nothing yet. Tell me a lasting preference, e.g. \"I always buy Sony\"."));
+  for (const p of prefs) {
+    const li = list.appendChild(el("li", `${p.text} (strength ${p.strength.toFixed(1)})`));
+    const del = li.appendChild(el("button", "Delete"));
+    del.onclick = async () => {
+      del.disabled = true;
+      try { await api("/api/memory/" + p.id, null, "DELETE"); } catch (err) { add(el("div", "Error: " + err.message, "msg bot")); }
+      loadMemory();
+    };
+  }
+}
+
 document.getElementById("new-chat").onclick = async () => {
   await api("/api/conversation/new", {});
   log.textContent = "";
   add(el("div", "New conversation started. Saved preferences will be used for recommendations.", "msg bot"));
 };
+
+loadMemory();
 
 const returnedOrder = new URLSearchParams(location.search).get("order_id");
 if (returnedOrder) {
