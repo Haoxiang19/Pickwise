@@ -5,9 +5,10 @@ Read this first in a new session. Updated before every commit.
 ## Done
 - Repo setup: MIT license, .gitignore, requirements.txt.
 - M1: model interface layer (`app/llm.py`, `app/money.py`).
+- M1: product search and mock catalog (`app/catalog.py`, `app/mock_catalog.json`).
 
 ## In progress
-- M1: mock catalog and Channel3 adapter (`app/catalog.py`), next F3/F4.
+- M1: F3-F6 recommendation pipeline (`app/recommend.py`).
 
 ## Next
 - M1: F3+F4 (multi-query search, hard filter), F5+F6 (rank, top 3), F1+F2 (agent loop, ask for budget), chat endpoint and minimal page.
@@ -15,6 +16,7 @@ Read this first in a new session. Updated before every commit.
 
 ## Not verified (needs real services)
 - No real model call made yet: function calling on DeepSeek, model ID, `usage` field names.
+- No real Channel3 call: field names and the dollar unit of `offers[].price.price`.
 
 ## Questions for the owner
 - (none yet)

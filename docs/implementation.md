@@ -22,3 +22,22 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_llm.py`: mock path, extra body merged, message returned unchanged, missing usage counts 0, HTTP error becomes `LLMError`, retry-once-then-fallback, money conversion.
 
 **Limits / not verified.** No real provider has been called (no key). The `usage` counter is process-wide, so it is only meaningful when requests run one at a time, as in the eval. `LLM_EXTRA_BODY` that is not a JSON object is ignored with a warning.
+
+## M1 Product search and mock catalog (`app/catalog.py`)
+
+**What it does.** Searches Channel3 when `CHANNEL3_API_KEY` is set, otherwise a 53-item local mock catalog, and normalizes every result to the Product shape from requirements section 7.
+
+**Where.** `app/catalog.py`: `search`, `normalize`, `_channel3_search`, `_mock_search`. Data: `app/mock_catalog.json` (stored in Channel3's raw shape).
+
+**How it works.**
+1. `search(query, limit=10)` gets raw results from Channel3 (`POST /v1/search` with `{"query", "limit", "config": {"currency": "USD"}}` and the `x-api-key` header) or from the mock, then calls `normalize` on each.
+2. Mock search: lowercase word sets with stopwords removed and a crude plural fold; score = shared words between query and title/description/category/brand; top `limit` by score, catalog order on ties.
+3. `normalize` keeps only USD offers with a parseable `price.price` (read with `Decimal`), picks the cheapest in-stock one. If none is in stock it keeps the cheapest USD offer with `in_stock=False`; with no USD offer at all, `price_cents` and `currency` are `None`. These two cases map to the "out of stock" and "no in-stock USD offer" rejection reasons in F4.
+4. Main image is the one with `is_main_image`, else the first; brand is `brands[0].name`; category is `category.title`.
+5. Channel3 HTTP or parse failures raise `CatalogError`.
+
+**Why.** Keeping the mock in Channel3's raw shape means the same `normalize` code runs in tests and keyless mode, so the mapping is exercised even without a key. The budget is not sent as a Channel3 filter, so over-budget items can be shown as rejected.
+
+**Verified.** `tests/test_catalog.py`: cheapest in-stock USD offer chosen, out-of-stock and non-USD cases, missing fields, mock search, Channel3 request shape (with a fake HTTP call).
+
+**Limits / not verified.** No real Channel3 call yet. The field names and the dollar unit of `offers[].price.price` come from the docs only; a unit mistake would be a 100x price error and must be checked against a real response. The mock search is word overlap only.

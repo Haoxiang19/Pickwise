@@ -1,0 +1,1539 @@
+[
+ {
+  "id": "m-hp-01",
+  "title": "Soundcore Q20 Wireless Noise Cancelling Headphones",
+  "description": "Over-ear Bluetooth headphones with hybrid active noise cancelling and 40-hour battery.",
+  "brands": [
+   {
+    "name": "Soundcore"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-hp-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Headphones"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "59.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-hp-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-hp-02",
+  "title": "Sony WH-1000XM5 Noise Cancelling Headphones",
+  "description": "Premium over-ear wireless headphones with industry-leading noise cancelling.",
+  "brands": [
+   {
+    "name": "Sony"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-hp-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Headphones"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "348.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-hp-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-hp-03",
+  "title": "JBL Tune 510BT Wireless On-Ear Headphones",
+  "description": "Lightweight on-ear Bluetooth headphones with 40-hour battery and fast charging.",
+  "brands": [
+   {
+    "name": "JBL"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-hp-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Headphones"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "29.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-hp-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-hp-04",
+  "title": "Bose QuietComfort Headphones",
+  "description": "Wireless noise cancelling over-ear headphones with comfortable ear cushions.",
+  "brands": [
+   {
+    "name": "Bose"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-hp-04.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Headphones"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "249.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-hp-04",
+    "availability": "OutOfStock"
+   }
+  ]
+ },
+ {
+  "id": "m-hp-05",
+  "title": "Sennheiser HD 280 Pro Wired Studio Headphones",
+  "description": "Closed-back wired headphones for studio monitoring with strong passive isolation.",
+  "brands": [
+   {
+    "name": "Sennheiser"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-hp-05.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Headphones"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "99.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-hp-05",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-hp-06",
+  "title": "Anker Soundcore Life Q30 Hybrid Noise Cancelling Headphones",
+  "description": "Wireless headphones with multiple noise cancelling modes and 50-hour battery.",
+  "brands": [
+   {
+    "name": "Soundcore"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-hp-06.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Headphones"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "79.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-hp-06",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-eb-01",
+  "title": "Apple AirPods Pro (2nd generation) Wireless Earbuds",
+  "description": "In-ear wireless earbuds with active noise cancellation and USB-C case.",
+  "brands": [
+   {
+    "name": "Apple"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-eb-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Earbuds"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "189.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-eb-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-eb-02",
+  "title": "Samsung Galaxy Buds FE Wireless Earbuds",
+  "description": "Wireless earbuds with active noise cancelling and comfortable wing tips.",
+  "brands": [
+   {
+    "name": "Samsung"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-eb-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Earbuds"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "64.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-eb-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-rs-01",
+  "title": "Brooks Ghost 16 Men's Running Shoes",
+  "description": "Neutral cushioned road running shoe for daily training.",
+  "brands": [
+   {
+    "name": "Brooks"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-rs-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Running Shoes"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "139.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-rs-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-rs-02",
+  "title": "Nike Pegasus 41 Road Running Shoes",
+  "description": "Responsive everyday running shoe with ReactX foam.",
+  "brands": [
+   {
+    "name": "Nike"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-rs-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Running Shoes"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "139.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-rs-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-rs-03",
+  "title": "ASICS Gel-Contend 9 Running Shoes",
+  "description": "Affordable neutral running shoe with GEL cushioning for beginners.",
+  "brands": [
+   {
+    "name": "ASICS"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-rs-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Running Shoes"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "64.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-rs-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-rs-04",
+  "title": "New Balance Fresh Foam 680v8 Running Shoes",
+  "description": "Cushioned running shoe with breathable mesh upper.",
+  "brands": [
+   {
+    "name": "New Balance"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-rs-04.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Running Shoes"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "84.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-rs-04",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-rs-05",
+  "title": "Saucony Peregrine 14 Trail Running Shoes",
+  "description": "Trail running shoe with aggressive lugs and rock plate.",
+  "brands": [
+   {
+    "name": "Saucony"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-rs-05.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Running Shoes"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "139.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-rs-05",
+    "availability": "OutOfStock"
+   }
+  ]
+ },
+ {
+  "id": "m-rs-06",
+  "title": "Nike Revolution 7 Running Shoes",
+  "description": "Lightweight everyday running shoe with soft foam.",
+  "brands": [
+   {
+    "name": "Nike"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-rs-06.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Running Shoes"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "69.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-rs-06",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-bp-01",
+  "title": "Osprey Daylite Plus 20L Backpack",
+  "description": "Versatile daypack with laptop sleeve and padded mesh back panel.",
+  "brands": [
+   {
+    "name": "Osprey"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-bp-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Backpacks"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "70.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-bp-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-bp-02",
+  "title": "Herschel Little America Leather Trim Backpack",
+  "description": "Classic backpack with leather strap trim and 15-inch laptop sleeve.",
+  "brands": [
+   {
+    "name": "Herschel"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-bp-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Backpacks"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "119.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-bp-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-bp-03",
+  "title": "AmazonBasics Laptop Backpack 15.6 Inch",
+  "description": "Simple laptop backpack with padded compartment and water bottle pocket.",
+  "brands": [
+   {
+    "name": "Amazon Basics"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-bp-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Backpacks"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "27.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-bp-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-bp-04",
+  "title": "Leather Laptop Backpack for Men, Full Grain",
+  "description": "Full grain leather backpack with laptop compartment.",
+  "brands": [
+   {
+    "name": "Vintage Craft"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-bp-04.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Backpacks"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "89.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-bp-04",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-bp-05",
+  "title": "The North Face Borealis Laptop Backpack",
+  "description": "Durable 28L backpack with laptop sleeve and FlexVent suspension.",
+  "brands": [
+   {
+    "name": "The North Face"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-bp-05.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Backpacks"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "99.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-bp-05",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-cf-01",
+  "title": "Bodum Chambord French Press Coffee Maker 34 oz",
+  "description": "Classic glass French press for 8 cups of coffee.",
+  "brands": [
+   {
+    "name": "Bodum"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-cf-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Coffee Makers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "39.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-cf-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-cf-02",
+  "title": "Ninja 12-Cup Programmable Drip Coffee Maker",
+  "description": "Drip coffee maker with hot plate and delay brew.",
+  "brands": [
+   {
+    "name": "Ninja"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-cf-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Coffee Makers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "79.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-cf-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-cf-03",
+  "title": "AeroPress Original Coffee Press",
+  "description": "Portable coffee press for espresso-style and American coffee.",
+  "brands": [
+   {
+    "name": "AeroPress"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-cf-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Coffee Makers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "39.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-cf-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-cf-04",
+  "title": "Breville Bambino Plus Espresso Machine",
+  "description": "Compact espresso machine with automatic milk frothing.",
+  "brands": [
+   {
+    "name": "Breville"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-cf-04.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Coffee Makers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "499.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-cf-04",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-cf-05",
+  "title": "Baratza Encore Conical Burr Coffee Grinder",
+  "description": "Entry-level burr grinder with 40 grind settings.",
+  "brands": [
+   {
+    "name": "Baratza"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-cf-05.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Coffee Grinders"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "149.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-cf-05",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-cf-06",
+  "title": "Hario V60 Pour Over Coffee Dripper Kit",
+  "description": "Ceramic pour over dripper kit with filters.",
+  "brands": [
+   {
+    "name": "Hario"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-cf-06.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Coffee Makers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "29.50",
+     "currency": "EUR"
+    },
+    "url": "https://example.com/buy/m-cf-06",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ym-01",
+  "title": "Manduka PRO Yoga Mat 6mm",
+  "description": "Dense high-performance yoga mat with lifetime guarantee.",
+  "brands": [
+   {
+    "name": "Manduka"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ym-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Yoga Mats"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "129.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ym-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ym-02",
+  "title": "Gaiam Essentials Thick Yoga Mat",
+  "description": "10mm thick exercise mat with carrying strap.",
+  "brands": [
+   {
+    "name": "Gaiam"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ym-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Yoga Mats"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "24.98",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ym-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ym-03",
+  "title": "Liforme Original Yoga Mat",
+  "description": "Grippy eco-friendly yoga mat with alignment markers.",
+  "brands": [
+   {
+    "name": "Liforme"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ym-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Yoga Mats"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "149.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ym-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ym-04",
+  "title": "Lululemon The Mat 5mm",
+  "description": "Natural rubber yoga mat with polyurethane top layer for grip.",
+  "brands": [
+   {
+    "name": "Lululemon"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ym-04.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Yoga Mats"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "108.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ym-04",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-dl-01",
+  "title": "BenQ e-Reading LED Desk Lamp",
+  "description": "Wide-coverage LED desk lamp with auto-dimming.",
+  "brands": [
+   {
+    "name": "BenQ"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-dl-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Desk Lamps"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "199.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-dl-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-dl-02",
+  "title": "TaoTronics LED Desk Lamp with USB Charging Port",
+  "description": "Dimmable LED desk lamp with 5 color modes.",
+  "brands": [
+   {
+    "name": "TaoTronics"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-dl-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Desk Lamps"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "32.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-dl-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-dl-03",
+  "title": "IKEA FORSA Work Lamp",
+  "description": "Adjustable steel work lamp with classic design.",
+  "brands": [
+   {
+    "name": "IKEA"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-dl-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Desk Lamps"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "29.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-dl-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-wb-01",
+  "title": "Hydro Flask 32 oz Wide Mouth Water Bottle",
+  "description": "Insulated stainless steel bottle keeps drinks cold for 24 hours.",
+  "brands": [
+   {
+    "name": "Hydro Flask"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-wb-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Water Bottles"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "44.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-wb-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-wb-02",
+  "title": "Nalgene Wide Mouth 32oz Water Bottle",
+  "description": "BPA-free durable plastic water bottle.",
+  "brands": [
+   {
+    "name": "Nalgene"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-wb-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Water Bottles"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "15.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-wb-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-wb-03",
+  "title": "Stanley Quencher H2.0 Tumbler 40 oz",
+  "description": "Insulated tumbler with handle and straw.",
+  "brands": [
+   {
+    "name": "Stanley"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-wb-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Water Bottles"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "45.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-wb-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ch-01",
+  "title": "Anker 65W USB-C Charger, 3 Port",
+  "description": "Compact GaN wall charger for phone and laptop.",
+  "brands": [
+   {
+    "name": "Anker"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ch-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Phone Chargers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "35.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ch-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ch-02",
+  "title": "Apple 20W USB-C Power Adapter",
+  "description": "Fast charging adapter for iPhone.",
+  "brands": [
+   {
+    "name": "Apple"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ch-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Phone Chargers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "19.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ch-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ch-03",
+  "title": "Belkin 3-in-1 MagSafe Wireless Charging Stand",
+  "description": "Charges iPhone, Apple Watch and AirPods at once.",
+  "brands": [
+   {
+    "name": "Belkin"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ch-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Phone Chargers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "129.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ch-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-kn-01",
+  "title": "Victorinox Fibrox Pro 8-Inch Chef's Knife",
+  "description": "Stamped stainless chef's knife with non-slip handle.",
+  "brands": [
+   {
+    "name": "Victorinox"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-kn-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Kitchen Knives"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "54.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-kn-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-kn-02",
+  "title": "Mercer Culinary Millennia 8-Inch Chef's Knife",
+  "description": "Budget chef's knife with ergonomic handle.",
+  "brands": [
+   {
+    "name": "Mercer"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-kn-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Kitchen Knives"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "21.50",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-kn-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-kn-03",
+  "title": "Shun Classic 8-Inch Chef's Knife",
+  "description": "Damascus Japanese chef's knife with VG-MAX core.",
+  "brands": [
+   {
+    "name": "Shun"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-kn-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Kitchen Knives"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "189.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-kn-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-tn-01",
+  "title": "Coleman Sundome 4-Person Camping Tent",
+  "description": "Easy-setup dome tent for family camping.",
+  "brands": [
+   {
+    "name": "Coleman"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-tn-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Tents"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "89.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-tn-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-tn-02",
+  "title": "REI Co-op Half Dome SL 2+ Backpacking Tent",
+  "description": "Lightweight two-person backpacking tent.",
+  "brands": [
+   {
+    "name": "REI Co-op"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-tn-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Tents"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "329.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-tn-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-sb-01",
+  "title": "Teton Sports Celsius Sleeping Bag 20F",
+  "description": "Warm rectangular sleeping bag for camping.",
+  "brands": [
+   {
+    "name": "Teton Sports"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-sb-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Sleeping Bags"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "59.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-sb-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-sb-02",
+  "title": "Kelty Cosmic 20 Down Sleeping Bag",
+  "description": "Lightweight down mummy sleeping bag for backpacking.",
+  "brands": [
+   {
+    "name": "Kelty"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-sb-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Sleeping Bags"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "179.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-sb-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-gf-01",
+  "title": "Yankee Candle Large Jar Candle, Balsam & Cedar",
+  "description": "Scented jar candle with up to 150 hours burn time. A cozy gift.",
+  "brands": [
+   {
+    "name": "Yankee Candle"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-gf-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Candles"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "31.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-gf-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-gf-02",
+  "title": "Ember Mug 2 Temperature Control Smart Mug 10 oz",
+  "description": "Heated smart mug that keeps coffee at the set temperature. Popular gift.",
+  "brands": [
+   {
+    "name": "Ember"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-gf-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Mugs"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "129.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-gf-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-gf-03",
+  "title": "Moleskine Classic Hardcover Notebook",
+  "description": "Ruled hardcover notebook, a classic gift for writers.",
+  "brands": [
+   {
+    "name": "Moleskine"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-gf-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Notebooks"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "22.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-gf-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-gf-04",
+  "title": "LEGO Botanicals Orchid Building Set",
+  "description": "Buildable artificial orchid display for adults. A relaxing gift.",
+  "brands": [
+   {
+    "name": "LEGO"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-gf-04.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Toys"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "49.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-gf-04",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-gf-05",
+  "title": "Cozy Sherpa Fleece Throw Blanket",
+  "description": "Soft warm throw blanket for the couch. A cozy gift.",
+  "brands": [
+   {
+    "name": "Bedsure"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-gf-05.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Blankets"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "26.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-gf-05",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-gf-06",
+  "title": "Kindle Paperwhite E-Reader 16GB",
+  "description": "Waterproof e-reader with adjustable warm light. Great gift for readers.",
+  "brands": [
+   {
+    "name": "Amazon"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-gf-06.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "E-Readers"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "159.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-gf-06",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-gf-07",
+  "title": "Instax Mini 12 Instant Camera",
+  "description": "Instant film camera with automatic exposure. Fun gift.",
+  "brands": [
+   {
+    "name": "Fujifilm"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-gf-07.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Cameras"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "79.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-gf-07",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-gf-08",
+  "title": "Leather Card Holder Wallet",
+  "description": "Slim leather card holder, a classic gift.",
+  "brands": [
+   {
+    "name": "Bellroy"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-gf-08.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Wallets"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "59.00",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-gf-08",
+    "availability": "InStock"
+   }
+  ]
+ }
+]
