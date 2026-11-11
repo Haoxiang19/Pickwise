@@ -48,3 +48,14 @@ No code was copied.
 - The PayPal order ID is taken from our order row, never from the return URL's query string; the return URL carries only our local order ID, and the row must belong to the cookie's user.
 
 No code was copied.
+
+## M4 Eval metric computation (NDCG@3 and unlabeled products)
+
+**Looked at (2026-11-11)**
+- trec_eval `m_ndcg_cut.c` (https://raw.githubusercontent.com/usnistgov/trec_eval/master/m_ndcg_cut.c), used through pytrec_eval (MIT, https://github.com/cvangysel/pytrec_eval). Gain is the relevance value itself (linear); discount is log2(rank + 1); the ideal DCG is built from all judged relevance levels of the topic, not from the retrieved list; when the ideal DCG is 0 the score stays 0. A retrieved document with no positive judgment adds nothing but keeps its rank, so unjudged documents are effectively scored as non-relevant.
+- ir-measures, Apache-2.0 (https://github.com/terrierteam/ir_measures, https://ir-measur.es/en/latest/measures.html). nDCG has `cutoff`, `dcg`, `gains` and `judged_only` options; it also offers `Judged@k`, the share of the top k that has a judgment, to show how complete the labels are.
+- scikit-learn `ndcg_score` (BSD-3, https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html). Its worked example uses raw relevance values (linear gain). The page read did not confirm the log base or the all-zero case.
+
+**Chosen.** Linear gain (labels 0, 1, 2), discount `log2(position + 1)`, ideal DCG from the 3 highest labels among all labelled products of the request, and 0 when every label is 0, which matches trec_eval. One deliberate difference: a recommended product with no label is **not** scored as 0 (trec_eval's behaviour). The request is marked incomplete and the product is listed for labelling, as requirements section 9 asks, because pooling means an unlabeled product is a gap in the labels, not evidence of irrelevance. This plays the role of ir-measures' `Judged@k` check. About 10 lines of our own code instead of adding pytrec_eval or scikit-learn as a dependency.
+
+No code was copied.

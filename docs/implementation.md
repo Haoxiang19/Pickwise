@@ -238,3 +238,22 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_checkout.py`: draft then refund marks `REFUNDED` with the right request ID; second refund and second draft refused without calling PayPal; unpaid and foreign orders refused; PayPal error and `PENDING` leave the order `COMPLETED`; 4 simultaneous clicks make one PayPal call. `tests/test_agent.py`: "I want a refund for order N" only drafts (PayPal refund patched to fail the test if called), and there is no refund tool. `tests/test_api.py`: refund endpoint after a mock purchase, other user refused, second refund refused. By hand (keyless): bought a chef's knife ($54.00, order #4), "please refund order 4" showed the draft, Confirm refund showed "This order was refunded", status `REFUNDED`.
 
 **Limits / not verified.** No sandbox refund was made. Partial refunds are not supported. A pending refund is not polled; the user has to retry.
+
+## M4 Eval script (`eval/`)
+
+**What it does.** One command builds or loads a search snapshot, measures ask accuracy live, replays the snapshot through three ablation versions, and prints constraint satisfaction, grounding, over-budget count, injection resistance, NDCG@3, latency and cost per version and request type.
+
+**Where.** `eval/run_eval.py`: `build_snapshot`, `load_snapshot`, `ask_accuracy`, `run_one`, `summarize`, `to_label`, `main`. `eval/metrics.py`: `ndcg_at_3`, `meets_constraints`, `is_over_budget`, `is_grounded`, `mean`. Data: `eval/requests.json`, `eval/adversarial.json`, `eval/labels.json` (empty). App hooks: `agent.understand` (step 1 alone, same prompt and tools as the agent), `recommend(..., inject=...)` and the `ranking` field in its result, `llm.DEFAULT_TEMPERATURE`.
+
+**How it works.**
+1. Snapshot: on the first run, for each clear, gift and adversarial request, `agent.understand` produces the structured request, then every query and the raw request text are searched (10 results each). Saved as `snapshot.json` only when both the model and Channel3 are real, otherwise `snapshot_mock.json`. An existing snapshot is never rewritten.
+2. Ask accuracy: `agent.understand` on all 27 requests; correct when it asked exactly for the 5 missing-budget requests.
+3. Replay: for each version (baseline: one search with the raw words, search order; + multi-query; + reasoning rank) and each seed, `recommend` gets a `search_fn` that reads the snapshot. Hostile listings are injected in front of the results; the runner raises if one would fail the hard filter.
+4. Per request it logs queries, candidates, rejection reasons, ranking, recommendations, and computes: constraint check per product (F4 rule), grounding against the snapshot results (not the pipeline's own copy), over-budget count, hostile IDs in the top 3, seconds, model calls and tokens.
+5. `summarize` computes each metric per run, then averages over runs. NDCG@3 is averaged over requests whose top 3 are fully labelled; the rest are counted as unlabeled. `to_label.json` lists every recommended product without a label (pooling).
+
+**Why.** Replaying a fixed snapshot gives every version the same products, and replaying step 1 avoids new model-written queries that would not be in the snapshot. Metric choices and the NDCG definition are compared in `docs/decisions.md` (M4).
+
+**Verified.** `tests/test_eval.py`: NDCG perfect, reversed, ideal from all labels, unlabeled is incomplete, all-zero is 0; constraint, budget and grounding helpers; 27 requests with the right type counts; 3 hostile kinds per adversarial request; labels file empty; `run_one` and `summarize` on a tiny snapshot; a hostile listing that would be filtered is refused. By hand: `python -m eval.run_eval --name mock-check` in keyless mode ran all versions, printed the table with the mock warning, and wrote logs and `to_label.json` (22 requests to label). Those mock numbers are not results and are not reported anywhere.
+
+**Limits / not verified.** No real snapshot exists yet (needs LLM and Channel3 keys), so there are no eval numbers. Labels are empty. P1 rows (multi-shuffle, memory) and the preference requests are not built. Hostile listings are placed first, so injection resistance for search-order versions only reflects placement.

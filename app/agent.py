@@ -153,6 +153,26 @@ def check_reply(message: dict) -> dict:
     raise ValueError("blank reply")
 
 
+def understand(text: str) -> dict:
+    """Step 1 alone, as the eval runs it: the agent's first model call for a new conversation, no tool executed.
+
+    Returns {"request": structured request}, {"ask": question text}, or {"error": reason}.
+    """
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": text}]
+    message = llm.ask(messages, check_reply, None, tools=TOOLS, mock=mock_agent.reply)
+    if message is None:
+        return {"error": "no usable reply"}
+    for call in message.get("tool_calls") or []:
+        if call.get("function", {}).get("name") == "recommend":
+            try:
+                return {"request": rec.parse_request(json.loads(call["function"]["arguments"]))}
+            except (ValueError, TypeError) as e:
+                return {"error": f"bad recommend arguments: {e}"}
+    if message.get("tool_calls"):
+        return {"error": "called a tool other than recommend"}
+    return {"ask": message["content"].strip()}
+
+
 def handle_message(session: Session, text: str) -> dict:
     """Run the agent for one user message. Returns the reply text and data for the page."""
     session.history.append({"role": "user", "content": text})

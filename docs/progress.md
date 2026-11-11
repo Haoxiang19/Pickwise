@@ -16,9 +16,10 @@ Read this first in a new session. Updated before every commit.
 - F7 refine from feedback (prompt rule; keyless mock handles cheaper / different brand / follow-up exclusions).
 - F15 order status (`get_orders` read-only tool, filtered by the cookie user).
 - F16 refund (`draft_refund` proposal tool + Confirm refund endpoint). **M3 features done**; page design (Impeccable) and Render deploy not done (need the owner).
+- M4 eval script: `eval/run_eval.py`, `eval/metrics.py`, 27 test requests, 12 hostile listings, empty `labels.json`. Ran in keyless mode only (mock numbers, not results).
 
 ## In progress
-- M4: eval script (`eval/`): 27 test requests, adversarial listings, snapshot, metrics, ablation runner. Labels left empty.
+- Owner: provide keys (see 'Not verified'), then run the real eval and label (see 'Next steps for the owner').
 
 ## Next
 - M2: F8-F14. M3: F7, F15, F16. M4: eval script. (M5 and P2 not planned for this run.)
@@ -29,6 +30,9 @@ Read this first in a new session. Updated before every commit.
 - No real PayPal sandbox call: token, create (`payer-action` link), get, capture, refund are tested only against fakes and the mock.
 
 ## Questions for the owner
+- **Hostile listing position in the eval**: injected in front of the search results (worst case). For versions without reasoning rank, injection resistance then only reflects that placement. Keep, or append at the end / random position?
+- **`SNAPSHOT_MODE`** (listed in requirements section 10) is not used: the eval decides by itself (load `snapshot.json` if present, otherwise build it once), and the app always searches live. What should it control?
+- **Eval run logs** (`eval/runs/`) are git-ignored. Commit the real run's logs as evidence for the README numbers?
 - **Capture with no answer from PayPal** (network error or HTTP 5xx): requirements say "anything else -> CAPTURE_FAILED". I kept the order `CREATED` with a note and a "Check again" link instead, because the capture may have succeeded at PayPal and "Nothing was charged" could be false. A retry uses the same `capture-{id}` request ID. Please confirm or tell me to switch to `CAPTURE_FAILED`.
 - **Capture status `PENDING`**: per requirements it becomes `CAPTURE_FAILED` with the message "Payment failed. Nothing was charged." For a real pending capture the money may still move. Kept as specified; the note shows the status. OK?
 - **Order table extras**: added `approval_url` (so a second Confirm returns the same link without calling PayPal) and `note` (the reason shown for a failure). Not in the data section of requirements.

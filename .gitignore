@@ -7,3 +7,4 @@ __pycache__/
 logs/
 eval/runs/
 .pytest_tmp/
+eval/snapshot_mock.json

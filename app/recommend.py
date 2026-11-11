@@ -175,11 +175,15 @@ def pick_top3(ranking: list[dict], candidates: list[dict], n_queries: int) -> li
     return picks
 
 
-def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.search, seed: int | None = None) -> dict:
-    """Run steps 2-5 for one structured request and return what the agent and the page need."""
+def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.search, seed: int | None = None,
+              inject: list[dict] = ()) -> dict:
+    """Run steps 2-5 for one structured request and return what the agent and the page need.
+
+    `inject` is for the eval only: hostile listings added in front of the search results.
+    """
     queries = request["queries"] if flags["multi_query"] else [request["raw_request"]]
     seed = random.randrange(2**31) if seed is None else seed
-    products = search_all(queries, search_fn)
+    products = [{**p, "query_index": 0} for p in inject] + search_all(queries, search_fn)
     candidates, rejected = hard_filter(products, request["budget_cents"], request["must_not"])
     ranking = rank(request, candidates, seed) if flags["reasoning_rank"] and candidates else []
     picks = pick_top3(ranking, candidates, len(queries))
@@ -201,4 +205,4 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
                                          "rejected": [[r["id"], r["kind"]] for r in rejected],
                                          "ranking": [r["id"] for r in ranking], "picks": [r["id"] for r in picks]}))
     return {"recommendations": recommendations, "rejected": rejected, "note": note, "queries": queries,
-            "seed": seed, "candidates": candidates, "products": products}
+            "seed": seed, "candidates": candidates, "products": products, "ranking": ranking}

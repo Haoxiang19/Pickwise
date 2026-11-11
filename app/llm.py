@@ -12,6 +12,8 @@ import httpx
 
 log = logging.getLogger(__name__)
 
+DEFAULT_TEMPERATURE = 0.0  # used by every call in this app; the eval records it
+
 # Token counts for cost reporting in the eval. Shared by the process; the eval runs one request at a time.
 usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
 
@@ -40,7 +42,7 @@ def _extra_body() -> dict:
     return extra if isinstance(extra, dict) else {}
 
 
-def chat(messages: list[dict], tools: list[dict] | None = None, temperature: float = 0.0, mock=None) -> dict:
+def chat(messages: list[dict], tools: list[dict] | None = None, temperature: float = DEFAULT_TEMPERATURE, mock=None) -> dict:
     """Send one chat request and return the assistant message dict unchanged.
 
     `mock(messages)` is used when no key is configured. Raises LLMError on any failure.
@@ -72,7 +74,7 @@ def chat(messages: list[dict], tools: list[dict] | None = None, temperature: flo
     return message
 
 
-def ask(messages: list[dict], parse, fallback, tools=None, temperature: float = 0.0, mock=None):
+def ask(messages: list[dict], parse, fallback, tools=None, temperature: float = DEFAULT_TEMPERATURE, mock=None):
     """Call the model and validate the reply with `parse`, which raises ValueError on a format error.
 
     One retry, then `fallback` is returned, so bad model output never crashes a request.
