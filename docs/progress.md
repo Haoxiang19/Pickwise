@@ -8,12 +8,12 @@ Read this first in a new session. Updated before every commit.
 - M1: product search and mock catalog (`app/catalog.py`, `app/mock_catalog.json`).
 - F3 multi-query search, F4 hard filter (`app/recommend.py`).
 - F5 reasoning rank, F6 top-3 pick and result shape (`app/recommend.py`).
+- F1 parse request, F2 ask for budget: agent loop, keyless mock agent, /api/chat, minimal page. **M1 done** (in mock mode a request gives 3 recommendations; tests pass).
 
 ## In progress
-- F1+F2: agent loop with tools, keyless rule-based agent, /api/chat and minimal page (`app/agent.py`, `app/mock_agent.py`, `app/store.py`, `app/main.py`, `static/index.html`).
+- M2: F8 order summary (cart) next.
 
 ## Next
-- After F1+F2: M1 is done; start M2 (F8-F14).
 - M2: F8-F14. M3: F7, F15, F16. M4: eval script. (M5 and P2 not planned for this run.)
 
 ## Not verified (needs real services)
@@ -24,4 +24,5 @@ Read this first in a new session. Updated before every commit.
 - (none yet)
 
 ## Dev setup
+- Run: `.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000` (`.claude/launch.json` has the same).
 - `python -m venv .venv && .venv/Scripts/python -m pip install -r requirements.txt` (Windows path; use `.venv/bin/` elsewhere).

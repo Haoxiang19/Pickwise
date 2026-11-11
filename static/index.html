@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shopping Agent</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 16px; color: #1a1a1a; background: #fafafa; }
+  h1 { font-size: 1.3rem; margin: 0 0 8px; }
+  .badge { display: inline-block; font-size: .75rem; padding: 2px 8px; margin: 0 4px 4px 0; border-radius: 10px; background: #fff3cd; border: 1px solid #e0c060; }
+  #log { margin: 12px 0; }
+  .msg { padding: 8px 12px; margin: 8px 0; border-radius: 8px; white-space: pre-wrap; }
+  .user { background: #e7f0ff; margin-left: 15%; }
+  .bot { background: #fff; border: 1px solid #ddd; margin-right: 15%; }
+  .card { background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+  .price { font-weight: 600; }
+  .note { color: #8a5a00; }
+  details { margin: 8px 0; font-size: .9rem; }
+  form { display: flex; gap: 8px; position: sticky; bottom: 0; background: #fafafa; padding: 8px 0; }
+  input[type=text] { flex: 1; padding: 10px; font-size: 1rem; }
+  button { padding: 8px 14px; font-size: 1rem; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<h1>Shopping Agent</h1>
+<div id="badges"></div>
+<div id="log"></div>
+<form id="form">
+  <input id="input" type="text" placeholder="Describe what you need, e.g. running shoes under $100" autocomplete="off" required>
+  <button id="send">Send</button>
+</form>
+<script>
+const log = document.getElementById("log");
+
+// Build elements with textContent only: product text is untrusted and must never be parsed as HTML.
+function el(tag, text, cls) {
+  const e = document.createElement(tag);
+  if (text !== undefined) e.textContent = text;
+  if (cls) e.className = cls;
+  return e;
+}
+const dollars = cents => "$" + (cents / 100).toFixed(2);
+function add(node) { log.appendChild(node); node.scrollIntoView({block: "end"}); return node; }
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+
+function showRecommendations(data) {
+  const box = add(el("div"));
+  for (const r of data.recommendations || []) {
+    const card = box.appendChild(el("div", undefined, "card"));
+    card.appendChild(el("div", r.title + (r.brand ? " · " + r.brand : "")));
+    card.appendChild(el("div", dollars(r.price_cents), "price"));
+    card.appendChild(el("div", r.reason));
+  }
+  if (data.note) box.appendChild(el("p", data.note, "note"));
+  if (data.rejected && data.rejected.length) {
+    const d = box.appendChild(el("details"));
+    d.appendChild(el("summary", `Ruled out (${data.rejected.length})`));
+    const ul = d.appendChild(el("ul"));
+    for (const x of data.rejected) ul.appendChild(el("li", `${x.title} (${x.price_cents == null ? "no price" : dollars(x.price_cents)}): ${x.reason}`));
+  }
+}
+
+async function send(text) {
+  add(el("div", text, "msg user"));
+  const data = await api("/api/chat", {message: text});
+  add(el("div", data.reply, "msg bot"));
+  if (data.recommendations) showRecommendations(data);
+}
+
+document.getElementById("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const input = document.getElementById("input"), button = document.getElementById("send");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = ""; button.disabled = true;
+  try { await send(text); } catch (err) { add(el("div", "Error: " + err.message, "msg bot")); }
+  button.disabled = false; input.focus();
+});
+
+api("/api/status").then(s => {
+  const badges = document.getElementById("badges");
+  if (s.mock_llm) badges.appendChild(el("span", "Mock model (no LLM key)", "badge"));
+  if (s.mock_catalog) badges.appendChild(el("span", "Mock catalog (no Channel3 key)", "badge"));
+});
+</script>
+</body>
+</html>

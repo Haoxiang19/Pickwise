@@ -80,3 +80,24 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_recommend.py`: parsing after reasoning text, unknown and duplicate IDs, last JSON wins, cap at 6, six format-error cases, pick rules (one per query, fill, search-order fill), mock rank, fallback on a bad reply, prompt contains the untrusted-data rule and no URL or long description, same seed gives the same shuffle, end-to-end in mock mode, fewer-than-3 note. Run by hand in mock mode: "a gift for a coffee lover under 60" gives 3 products, 5 rejected.
 
 **Limits / not verified.** Not run against a real model, so ranking quality and how often the JSON line is malformed are unknown. Prices in the prompt are formatted by the server; the model's output never carries prices.
+
+## F1 Parse the request, F2 Ask when the budget is missing (`app/agent.py`, `app/mock_agent.py`, `app/main.py`)
+
+**What it does.** A hand-written tool loop turns the user's message into a structured request (budget, must-have, must-not, preferences, 3-4 queries) by having the model call the `recommend` tool, or into one budget question when no budget was given.
+
+**Where.** `app/agent.py`: `SYSTEM_PROMPT`, `TOOLS`, `tool_recommend`, `run_tool_call`, `check_reply`, `handle_message`. `app/mock_agent.py`: `reply`, `parse_budget`, `build_request`, `summarize`. `app/store.py`: `Session`, `get_session`. `app/main.py`: cookie middleware, `POST /api/chat`, `GET /api/status`. `static/index.html`: chat, cards, "Ruled out" list, mock badges.
+
+**How it works.**
+1. `POST /api/chat` finds the session by the `uid` cookie (random, `HttpOnly`, `SameSite=Lax`, set by the middleware) and calls `handle_message`.
+2. The user message is appended to the session history. Each round sends the system prompt plus history and the tool list through `llm.ask` with `check_reply` (a reply must have tool calls or non-blank text; one retry, then a fixed fallback reply).
+3. The assistant message is appended unchanged. Without tool calls its text is the reply. Otherwise every call is run by `run_tool_call` and answered with a `tool` message; unknown tools, bad JSON arguments and any exception become `{"error": ...}` for the model.
+4. After 5 tool rounds the loop appends and returns a fixed reply, so the history stays valid.
+5. `tool_recommend` runs `parse_request` and `recommend`, stores every searched product in `session.products` (the only IDs that may later enter a cart) and the budget in `session.budget_cents`, puts the cards and rejections into the page data, and gives the model a compact result (ID, title, formatted price, reason, rejected count, note).
+6. F2 is a prompt rule: ask one budget question when none is given; with "no limit", call `recommend` without `budget_usd` (budget `None`, budget checks skipped).
+7. Keyless mode: `mock_agent.reply` uses regexes for the budget (`$100`, `100 dollars`, `under 100`, a bare number after the question, "no limit") and for exclusions (`no X`, `without X`), splits the rest on "and"/commas into queries, and returns a real `tool_calls` message. After a tool result it writes a one-line summary.
+
+**Why.** No agent framework, so every step of the loop can be explained. The loop follows the Chat Completions pattern in the DeepSeek guide; limits and error handling are compared in `docs/decisions.md` (F1, F2). The model gets formatted prices for its reply, but cards use server prices in cents.
+
+**Verified.** `tests/test_agent.py`: asks once without a budget and does not search; the budget answer combines with the earlier request; budget in the first message searches directly; "no limit" skips budget checks; message appended unchanged (extra field kept) and the tool message follows; unknown tool and bad arguments returned to the model; 5-round limit; blank reply retry and fallback; no money tools. `tests/test_api.py`: cookie flags, chat flow, per-user sessions. By hand in the browser (keyless): "I need running shoes, no Nike" then "$120" gave the budget question, then 2 cards, the note, and 4 ruled-out products with reasons.
+
+**Limits / not verified.** Function calling has not been run on a real model (no key), so whether DeepSeek follows the ask-once rule and writes good queries is unknown until the eval. The mock understands only simple phrasings. Sessions are in memory and lost on restart; concurrent messages in one session are not serialized.
