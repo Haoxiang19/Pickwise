@@ -85,3 +85,20 @@ No code was copied.
 - A "What I remember" panel lists every entry with a delete button (none of the sources covers this; required by F20).
 
 No code was copied.
+
+## Channel3 response handling: ambiguous fields and retries
+
+**Looked at (2026-11-11)** — Channel3's own docs, since this is about matching one provider:
+- Search reference, `components.schemas.Product` (https://channel3.mintlify.dev/docs/api-reference/v1/search.md): the price is `offers[].price.price`, and the filter description calls it "dollars and cents". Filter defaults are `conditions: ["new"]` and `availability: ["InStock"]`.
+- Offer guide (https://channel3.mintlify.dev/docs/guides/offer.md): a product passes a filter when at least one offer matches, but the response still carries every offer, including non-matching ones. Offer `url` is an attributed buy link.
+- Search guide (https://channel3.mintlify.dev/docs/guides/search.md): its examples write `offers[].price.amount`, which contradicts the schema, and its filter table lists availability values (`LimitedAvailability`, `PreOrder`, `BackOrder`, `SoldOut`) that the schema does not accept.
+- Errors (https://channel3.mintlify.dev/docs/conversations/errors.md) and rate limits (https://channel3.mintlify.dev/docs/faq/rate-limits.md): body `{"error": {"code", "message"}}`; 429 carries `Retry-After: 5`; 503 is marked retryable.
+- Caching guide (https://channel3.mintlify.dev/docs/guides/caching.md): prices, availability and offers must be refreshed before being shown; offer URLs must not be cached.
+
+**Chosen.**
+- **Price field**: read `price.price`, fall back to `price.amount`. Trusting only the schema would mean every product looks like it has no USD offer, and the app would recommend nothing, with no obvious error. Two lines of code remove that risk until a real response settles it.
+- **Availability**: an offer counts as buyable unless its value is one of `OutOfStock`, `SoldOut`, `PreOrder`, `BackOrder`. The docs say an offer with no availability data is in stock, so treating missing as out of stock (the earlier behaviour) would silently drop valid products. An unseen value is logged once and treated as in stock, which is how a real response will teach us the real set. `PreOrder` and `BackOrder` count as not buyable, because this app takes payment immediately.
+- **Retries**: one retry on 429 and 5xx, honouring `Retry-After` capped at 10 seconds. Chosen over a retry library (no new dependency) and over retrying forever (a demo must fail fast). Network errors are not retried, because the docs say nothing about them. Error messages carry Channel3's `error.code`, so `insufficient_credits` is distinguishable from `unauthorized` when a key is first used.
+- **`config.country = "US"`** is now sent with the currency, so language and currency inference is deterministic rather than guessed from the caller.
+
+No code was copied.

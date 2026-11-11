@@ -21,15 +21,20 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - F18 preference memory write (`app/memory.py`, `remember_preference` tool, purchase writes "Likes the brand X").
 - F19 memory use: profile (top 3 positive) fixed per conversation, ranker-only soft preference, reason names the memory; New conversation button; eval adds 4 preference requests and the "+ memory" version.
 - Page states the concierge-style simulation (requirements section 1); README drafted with an empty results table.
+- Channel3 compatibility pass against the docs: price field fallback, availability semantics, one retry on 429/5xx, `country` in the request.
 - F20 'What I remember' panel: list and delete own entries (`GET/DELETE /api/memory`). **M5 done in keyless mode.**
-- State: 135 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- State: 152 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
 - Nothing. M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode. P2 not started.
 
 ## Next steps for the owner (in order)
 1. Put keys in `.env` (copy `.env.example`; never commit it): `LLM_*`, `CHANNEL3_API_KEY`, `PAYPAL_CLIENT_ID/SECRET`. For DeepSeek set `LLM_EXTRA_BODY={"thinking": {"type": "disabled"}}`. Note: the app reads environment variables only; it does not load `.env` by itself (no extra dependency). Export them in the shell, or use `uvicorn --env-file .env` (needs the `python-dotenv` package, not installed).
-2. Check Channel3 with one real search: field names and that `offers[].price.price` is in dollars (a cents value would be a 100x error). Fix `catalog.normalize` if not.
+2. Check Channel3 with one real search, **before building the eval snapshot** (the snapshot stores normalized products, so a mapping bug would be baked into it). Print one raw response and confirm:
+   - the price is in dollars, and whether the field is `price.price` or `price.amount` (the code accepts both, but only one should be in use);
+   - which `availability` values actually occur (the code treats anything outside `OutOfStock`/`SoldOut`/`PreOrder`/`BackOrder` as buyable and logs unknown values once);
+   - that `brands[0].name`, `images[].is_main_image` and `category.title` are populated.
+   Budget: one eval snapshot costs about 130 search credits out of 1,000 free per month, so do not rebuild it casually. There is no test key; every call is billed.
 3. Check DeepSeek function calling with the app: does it ask for the budget, call `recommend` with good queries, keep earlier conditions on refine.
 4. One real sandbox payment with a sandbox personal account (M2 done-criterion). Check: `payer-action` link, read-back status `APPROVED`, capture status, refund status.
 5. Impeccable design (`/impeccable init`, `craft`, `audit`), then deploy to Render with `APP_BASE_URL` set to the public URL.
@@ -43,6 +48,9 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Render deploy, phone-width layout, `secure` cookie behind Render's proxy.
 
 ## Questions for the owner
+- **Refresh prices before the cart?** Channel3's caching guide says prices and availability must be refreshed before being shown, and `GET /v1/products/{id}` is free. Our cart prices from the session's search cache, up to 15 minutes old. Adding a refresh at cart time would change P0 behaviour, so I did not do it. Worth doing?
+- **Show the merchant buy link?** `offers[].url` is an attributed buy link that earns commission, and Channel3 requires a disclosure near such links on every page. The app currently never shows them, so no disclosure is needed. Keep it that way, or show links and add the disclosure?
+- **Variants (size, colour) are ignored.** Channel3 says variant support is still rolling out and search results omit live per-variant stock. Buying shoes without a size is not realistic; currently listed as a known limitation in the README. OK?
 - **Capture with no answer from PayPal** (network error or HTTP 5xx): requirements say "anything else -> CAPTURE_FAILED". I kept the order `CREATED` with a note and a "Check again" link instead, because the capture may have succeeded at PayPal and "Nothing was charged" could be false. A retry uses the same `capture-{id}` request ID. Please confirm or tell me to switch to `CAPTURE_FAILED`.
 - **Capture status `PENDING`**: per requirements it becomes `CAPTURE_FAILED` with the message "Payment failed. Nothing was charged." For a real pending capture the money may still move. Kept as specified; the note shows the status. OK?
 - **Refund status other than `COMPLETED`** (e.g. `PENDING`): order stays `COMPLETED` with a note; a retry uses the same request ID. OK?

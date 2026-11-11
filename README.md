@@ -110,6 +110,9 @@ Start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, one worker (se
 - Render's free instance has no persistent disk, sleeps after 15 minutes and can restart at any time. A restart loses sessions, carts, the SQLite orders and saved preferences, so an order paid before a restart can no longer be looked up or refunded in the app. The first request after a sleep is slow.
 - One product per order; full refunds only; no shipping or tax.
 - No login: a random ID in an HttpOnly cookie identifies the user.
+- Product variants (size, colour) are ignored: the agent orders a product, not a specific variant.
+- Prices come from the search results and are held for the 15-minute quote; they are not refreshed from the retailer between the search and the payment.
+- Merchant buy links are not shown, so no affiliate commission is earned.
 - The keyless mock agent understands only simple phrasings; it exists so the flow can be demonstrated without keys.
 - The double-charge lock assumes a single worker process.
 - Not yet verified against the real services: Channel3 field names and price unit, function calling on the chosen model, and a real sandbox payment.

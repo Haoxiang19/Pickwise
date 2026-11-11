@@ -32,15 +32,15 @@ What was actually built, one entry per feature. Written after each feature is fi
 **How it works.**
 1. `search(query, limit=10)` gets raw results from Channel3 (`POST /v1/search` with `{"query", "limit", "config": {"currency": "USD"}}` and the `x-api-key` header) or from the mock, then calls `normalize` on each.
 2. Mock search: lowercase word sets with stopwords removed and a crude plural fold; score = 2 x shared words with the title + shared words with description/category/brand; top `limit` by score, catalog order on ties.
-3. `normalize` keeps only USD offers with a parseable `price.price` (read with `Decimal`), picks the cheapest in-stock one. If none is in stock it keeps the cheapest USD offer with `in_stock=False`; with no USD offer at all, `price_cents` and `currency` are `None`. These two cases map to the "out of stock" and "no in-stock USD offer" rejection reasons in F4.
+3. `normalize` keeps only USD offers with a parseable price (`price.price`, falling back to `price.amount`; read with `Decimal`), picks the cheapest in-stock one. An offer counts as in stock unless its availability is `OutOfStock`, `SoldOut`, `PreOrder` or `BackOrder`, because Channel3 treats a missing value as in stock; an unknown value is logged once. If none is in stock it keeps the cheapest USD offer with `in_stock=False`; with no USD offer at all, `price_cents` and `currency` are `None`. These two cases map to the "out of stock" and "no in-stock USD offer" rejection reasons in F4.
 4. Main image is the one with `is_main_image`, else the first; brand is `brands[0].name`; category is `category.title`.
-5. Channel3 HTTP or parse failures raise `CatalogError`.
+5. Channel3 failures raise `CatalogError`, whose message carries Channel3's `error.code`. A 429 or 5xx is retried once, waiting `Retry-After` (capped at 10 seconds); network errors and 4xx are not retried.
 
 **Why.** Keeping the mock in Channel3's raw shape means the same `normalize` code runs in tests and keyless mode, so the mapping is exercised even without a key. The budget is not sent as a Channel3 filter, so over-budget items can be shown as rejected.
 
 **Verified.** `tests/test_catalog.py`: cheapest in-stock USD offer chosen, out-of-stock and non-USD cases, missing fields, mock search, Channel3 request shape (with a fake HTTP call).
 
-**Limits / not verified.** No real Channel3 call yet. The field names and the dollar unit of `offers[].price.price` come from the docs only; a unit mistake would be a 100x price error and must be checked against a real response. The mock search is word overlap only.
+**Limits / not verified.** No real Channel3 call yet. The dollar unit of the price comes from the docs only; a unit mistake would be a 100x price error and must be checked against a real response. The docs contradict themselves on the price field name and list more availability values than the schema accepts, so both are handled defensively (see `docs/decisions.md`). Variants (size, colour) are ignored, and prices are not refreshed between the search and the cart. The mock search is word overlap only.
 
 ## F3 Multi-query search, F4 Hard-constraint filter (`app/recommend.py`)
 
