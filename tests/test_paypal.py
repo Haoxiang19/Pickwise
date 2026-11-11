@@ -91,6 +91,27 @@ def test_errors_carry_paypal_issue(live):
         assert e.value.issue == expected
 
 
+class TextResp(Resp):
+    """A reply whose body is not JSON, e.g. an HTML error page from a proxy."""
+
+    def __init__(self, status):
+        super().__init__(status, None)
+        self.content = b"<html>error</html>"
+
+    def json(self):
+        raise ValueError("not JSON")
+
+
+def test_non_json_4xx_is_a_refusal_but_non_json_2xx_is_an_unknown_outcome(live):
+    live["replies"] += [TextResp(422), TextResp(200)]
+    with pytest.raises(paypal.PayPalError) as e:
+        paypal.capture_order("PP1", "capture-1")
+    assert e.value.issue == "HTTP_422"  # PayPal refused: nothing happened, so not "could not reach PayPal"
+    with pytest.raises(paypal.PayPalError) as e:
+        paypal.capture_order("PP1", "capture-1")
+    assert e.value.issue == "NETWORK_ERROR"  # PayPal may have captured: keep the order for a safe retry
+
+
 def test_missing_payer_action_link_is_an_error(live):
     live["replies"].append(Resp(200, {"id": "PP1", "links": [{"rel": "approve", "href": "x"}]}))
     with pytest.raises(paypal.PayPalError, match="NO_APPROVAL_LINK"):

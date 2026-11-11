@@ -51,15 +51,23 @@ def _call(method: str, path: str, request_id: str | None = None, body: dict | No
         headers["PayPal-Request-Id"] = request_id
     try:
         resp = httpx.request(method, BASE_URL + path, headers=headers, json=body, timeout=30)
-        data = resp.json() if resp.content else {}
-    except (httpx.HTTPError, ValueError) as e:
-        # No usable response: the request may or may not have happened at PayPal.
+    except httpx.HTTPError as e:
+        # No response at all: the request may or may not have happened at PayPal.
         raise PayPalError("NETWORK_ERROR", str(e)) from e
     if resp.status_code >= 500:
         raise PayPalError("NETWORK_ERROR", f"HTTP {resp.status_code}")
+    try:
+        data = resp.json() if resp.content else {}
+    except ValueError:
+        data = None
     if resp.status_code >= 400:
+        # A 4xx is a definite refusal even when its body is not JSON, so it is not reported as a network error.
+        data = data if isinstance(data, dict) else {}
         details = data.get("details") or [{}]
         raise PayPalError(details[0].get("issue") or data.get("name") or f"HTTP_{resp.status_code}", data.get("message", ""))
+    if not isinstance(data, dict):
+        # A success code with an unreadable body: PayPal may have acted, so treat the outcome as unknown.
+        raise PayPalError("NETWORK_ERROR", f"unreadable response, HTTP {resp.status_code}")
     return data
 
 
