@@ -35,13 +35,43 @@ Read this first in a new session. Updated before every commit. Last update: 2026
    - the price is in dollars, and whether the field is `price.price` or `price.amount` (the code accepts both, but only one should be in use);
    - which `availability` values actually occur (the code treats anything outside `OutOfStock`/`SoldOut`/`PreOrder`/`BackOrder` as buyable and logs unknown values once);
    - that `brands[0].name`, `images[].is_main_image` and `category.title` are populated;
-   - what `GET /v1/products/{id}` returns (the product at the top level, or wrapped in `"product"`); the code accepts both.
+   - what `GET /v1/products/{id}` returns (the product at the top level, or wrapped in `"product"`); the code accepts both;
+   - whether `offers[].url` and `max_commission_rate` are populated, and how many results carry a `variants` object with a `selected` entry. Both feed the deferred decisions below.
    Budget: one eval snapshot costs about 130 search credits out of 1,000 free per month, so do not rebuild it casually. There is no test key; every call is billed.
 3. Check DeepSeek function calling with the app: does it ask for the budget, call `recommend` with good queries, keep earlier conditions on refine.
 4. One real sandbox payment with a sandbox personal account (M2 done-criterion). Check: `payer-action` link, read-back status `APPROVED`, capture status, refund status.
 5. Impeccable design (`/impeccable init`, `craft`, `audit`), then deploy to Render with `APP_BASE_URL` set to the public URL.
 6. Real eval: `python -m eval.run_eval --name full` (with both model and Channel3 keys it creates `eval/snapshot.json` once), label `runs/full/to_label.json` into `eval/labels.json`, run again for NDCG@3. The table now has 5 versions (incl. + multi-shuffle and + memory) and a memory-adherence column.
 7. README is drafted: fill the Results table only from a real run, and rewrite the "AI tools used" draft section in your own words. Still missing for submission: the video, the public GitHub repo (nothing pushed), and the Devpost entry.
+
+## Deferred until a real Channel3 key is connected
+
+Both are safe to leave as they are: the current behaviour needs no extra work and breaks no rule.
+Decide each one after looking at a real response (step 2 above).
+
+**Merchant buy links and the commission disclosure.** `offers[].url` is an attributed buy link
+(`buy.trychannel3.com/...`) that pays a commission, of which Channel3 keeps half. Its docs require a
+disclosure near such links on every page, screen or message that shows them. The app stores the URL
+but never renders it, so nothing is required today.
+- Look at: whether the URLs resolve to real retailer pages, and whether `max_commission_rate` is above 0.
+- If they are shown: add a "View at retailer" link to each card **and**, in the same change, the
+  disclosure sentence from Channel3's commissions page near the cards. Never one without the other.
+  Then say in the README that the app earns a commission, next to the concierge-simulation note.
+- Against showing them: it gives the user a second way to buy that bypasses the PayPal flow the demo
+  is about, and blurs the line between the real retailer and this project's sandbox merchant.
+- Doing nothing keeps the README's current wording ("merchant buy links are not shown") true.
+
+**Product variants (size, colour).** One product can cover several buyable variations. The app
+ignores them, so an order says "Brooks Ghost 16" with no size. Channel3 says variant support is still
+rolling out, and search results do not carry live per-variant stock.
+- Look at: how many real results have a `variants` object, and whether `selected` is filled in on
+  search results or only on product detail.
+- If most products have no variants: leave it, and keep the README limitation as it is.
+- If `selected` is filled in: show it on the card and copy it into the cart item and the order
+  snapshot. Display only, no picker; small and does not touch pricing.
+- A real picker (the user chooses the size) is post-hackathon: variant prices differ, so the cart,
+  the order row and the PayPal amount would all have to key on the variant instead of the product,
+  which is P0 payment behaviour.
 
 ## Not verified (needs real services)
 - No real model call made yet: function calling on DeepSeek, model ID, `usage` field names, ranking JSON quality, whether it saves/uses preferences sensibly, cost of 3 parallel ranking calls.
@@ -50,8 +80,6 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Render deploy, phone-width layout, `secure` cookie behind Render's proxy.
 
 ## Questions for the owner
-- **Show the merchant buy link?** `offers[].url` is an attributed buy link that earns commission, and Channel3 requires a disclosure near such links on every page. The app currently never shows them, so no disclosure is needed. Keep it that way, or show links and add the disclosure?
-- **Variants (size, colour) are ignored.** Channel3 says variant support is still rolling out and search results omit live per-variant stock. Buying shoes without a size is not realistic; currently listed as a known limitation in the README. OK?
 - **Capture with no answer from PayPal** (network error or HTTP 5xx): requirements say "anything else -> CAPTURE_FAILED". I kept the order `CREATED` with a note and a "Check again" link instead, because the capture may have succeeded at PayPal and "Nothing was charged" could be false. A retry uses the same `capture-{id}` request ID. Please confirm or tell me to switch to `CAPTURE_FAILED`.
 - **Capture status `PENDING`**: per requirements it becomes `CAPTURE_FAILED` with the message "Payment failed. Nothing was charged." For a real pending capture the money may still move. Kept as specified; the note shows the status. OK?
 - **Refund status other than `COMPLETED`** (e.g. `PENDING`): order stays `COMPLETED` with a note; a retry uses the same request ID. OK?
