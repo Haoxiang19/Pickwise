@@ -23,6 +23,7 @@ OTHER_BRAND = re.compile(r"\b(different|another|other) brands?\b", re.I)
 FOLLOW_UP = re.compile(r"^\s*(but|also|and|actually|only|now)\b", re.I)
 ORDER_QUESTION = re.compile(r"\b(order status|my orders?|where is my order|status of (my )?order|orders?\s*#?\s*\d+)\b", re.I)
 ORDER_ID = re.compile(r"\border\s*#?\s*(\d+)\b|#(\d+)", re.I)
+REFUND = re.compile(r"\b(refund|money back|return it)\b", re.I)
 
 
 def text_message(content: str) -> dict:
@@ -67,6 +68,8 @@ def summarize(result: dict) -> str:
             return "I could not find anything that fits. " + result["note"]
         names = "; ".join(f"{r['title']} ({r['price']})" for r in recs)
         return f"Here are {len(recs)} picks: {names}. {result['note']}".strip()
+    if "next_step" in result and "order_id" in result:
+        return f"I prepared a full refund of {result['amount']} for order #{result['order_id']}. Click Confirm refund to send it."
     if "orders" in result:
         if not result["orders"]:
             return "I could not find that order."
@@ -120,14 +123,21 @@ def reply(messages: list[dict]) -> dict:
         return text_message(summarize(json.loads(last["content"])))
 
     text = last["content"]
-    shown = last_recommendations(messages)
-    pick = PICK.search(text)
-    if pick and ORDINALS[pick.group(1).lower()] < len(shown):
-        return tool_message("prepare_cart", {"product_id": shown[ORDINALS[pick.group(1).lower()]]["id"], "quantity": 1})
+    # Order questions first, so "I want a refund for order 1" is not read as "want the 1st product".
+    if REFUND.search(text):
+        m = ORDER_ID.search(text)
+        if not m:
+            return text_message("Which order should I refund? Give its number, e.g. 'refund order 2'.")
+        return tool_message("draft_refund", {"order_id": int(m.group(1) or m.group(2))})
 
     if ORDER_QUESTION.search(text):
         m = ORDER_ID.search(text)
         return tool_message("get_orders", {"order_id": int(m.group(1) or m.group(2))} if m else {})
+
+    shown = last_recommendations(messages)
+    pick = PICK.search(text)
+    if pick and ORDINALS[pick.group(1).lower()] < len(shown):
+        return tool_message("prepare_cart", {"product_id": shown[ORDINALS[pick.group(1).lower()]]["id"], "quantity": 1})
 
     earlier = last_recommend_args(messages)
     if earlier and (CHEAPER.search(text) or OTHER_BRAND.search(text) or FOLLOW_UP.search(text)):

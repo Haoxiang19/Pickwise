@@ -81,3 +81,16 @@ def test_cancel_flow_and_privacy(client):
     other = TestClient(main.app)
     assert other.get(f"/api/orders/{confirm['order_id']}").status_code == 404
     assert other.get(f"/paypal/return?order_id={confirm['order_id']}", follow_redirects=False).status_code == 404
+
+
+def test_refund_endpoint_after_purchase(client):
+    rec, confirm = start_checkout(client)
+    token = confirm["approve_url"].split("token=")[1]
+    client.post("/mock-paypal/approve", content=f"token={token}", headers={"Content-Type": "application/x-www-form-urlencoded"})
+    draft = client.post("/api/chat", json={"message": f"refund order {confirm['order_id']}"}).json()["refund_draft"]
+    assert draft["amount_cents"] == rec["price_cents"]
+    assert TestClient(main.app).post(f"/api/orders/{confirm['order_id']}/refund").status_code == 400  # not the owner
+    done = client.post(f"/api/orders/{confirm['order_id']}/refund").json()
+    assert done["status"] == "REFUNDED"
+    again = client.post(f"/api/orders/{confirm['order_id']}/refund")
+    assert again.status_code == 400 and "already refunded" in again.json()["detail"]

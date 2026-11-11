@@ -219,3 +219,22 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_agent.py`: after a mock purchase, "status of order #N" returns that order as `COMPLETED` with the right amount; "show my orders" lists it; another user gets nothing. By hand (keyless, after a server restart with the same cookie): "what is my order status?" listed #3 CANCELLED $27.99, #2 COMPLETED $39.95, #1 CREATED $59.99.
 
 **Limits.** Orders live in SQLite on the server's disk, which Render's free tier does not keep across restarts. After a restart the mock PayPal forgets its orders, so "Check again" on an old `CREATED` order only shows "Could not reach PayPal".
+
+## F16 Refund (`app/checkout.py`, `app/agent.py`, `app/main.py`)
+
+**What it does.** The agent can only draft a full refund; PayPal is called only after the user clicks Confirm refund, and an order that was refunded cannot be refunded again.
+
+**Where.** `app/checkout.py`: `refund_draft`, `refund`. `app/agent.py`: `draft_refund` tool (`tool_draft_refund`), prompt rule. `app/main.py`: `POST /api/orders/{id}/refund`. `app/mock_agent.py`: `REFUND`. Page: `showRefundDraft`.
+
+**How it works.**
+1. The model calls `draft_refund(order_id)`. `refund_draft` checks the order belongs to this user, is not `REFUNDED`, and is `COMPLETED`; it returns order ID, amount, currency and items. Nothing is sent to PayPal. Errors go back to the model as tool errors.
+2. The page shows the draft with "Nothing is refunded until you click Confirm refund" and a Confirm refund button that disables itself on click.
+3. The button posts to `/api/orders/{id}/refund`. Under `checkout.LOCK`, `refund` repeats the same checks (local status first), then calls `paypal.refund_capture(capture_id, "refund-{order_id}")` with an empty body (full refund).
+4. Refund status `COMPLETED`: the row becomes `REFUNDED` and stores `refund_id`. Any other status (e.g. `PENDING`): the row stays `COMPLETED` with a note, and a retry uses the same request ID. A PayPal error leaves the row unchanged and tells the user they can try again.
+5. A second refund is refused locally ("already refunded") without calling PayPal.
+
+**Why.** Refund is in the money tier, so the model only proposes it (requirements section 6). The capture ID comes from our row, saved at capture time.
+
+**Verified.** `tests/test_checkout.py`: draft then refund marks `REFUNDED` with the right request ID; second refund and second draft refused without calling PayPal; unpaid and foreign orders refused; PayPal error and `PENDING` leave the order `COMPLETED`; 4 simultaneous clicks make one PayPal call. `tests/test_agent.py`: "I want a refund for order N" only drafts (PayPal refund patched to fail the test if called), and there is no refund tool. `tests/test_api.py`: refund endpoint after a mock purchase, other user refused, second refund refused. By hand (keyless): bought a chef's knife ($54.00, order #4), "please refund order 4" showed the draft, Confirm refund showed "This order was refunded", status `REFUNDED`.
+
+**Limits / not verified.** No sandbox refund was made. Partial refunds are not supported. A pending refund is not polled; the user has to retry.

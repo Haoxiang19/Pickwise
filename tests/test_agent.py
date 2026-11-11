@@ -196,3 +196,21 @@ def test_order_status_hides_other_users_orders():
     other = store.get_session("other")
     out = agent.handle_message(other, f"status of order {order['id']}")
     assert out["orders"] == [] and "could not find" in out["reply"]
+
+
+# --- F16 refund through the agent: draft only ---
+
+def test_refund_request_only_drafts(monkeypatch):
+    from app import checkout, store
+    s = store.get_session("u1")
+    order, _ = paid_order(s)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("the agent must not refund")
+
+    monkeypatch.setattr(checkout.paypal, "refund_capture", fail_if_called)
+    out = agent.handle_message(s, f"I want a refund for order {order['id']}")
+    assert out["refund_draft"]["order_id"] == order["id"] and "Confirm refund" in out["reply"]
+    assert store.get_order(order["id"], "u1")["status"] == "COMPLETED"
+    assert "draft_refund" in {t["function"]["name"] for t in agent.TOOLS}
+    assert "refund" not in agent.TOOL_FUNCTIONS

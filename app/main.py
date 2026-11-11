@@ -120,6 +120,16 @@ def get_order(order_id: int, request: Request):
     return checkout.order_view(order)
 
 
+@app.post("/api/orders/{order_id}/refund")
+def refund_order(order_id: int, request: Request):
+    """F16: the Confirm refund button. The only place a refund is sent to PayPal."""
+    try:
+        order = checkout.refund(request.state.user_id, order_id)
+    except checkout.CheckoutError as e:
+        raise HTTPException(400, str(e))
+    return checkout.order_view(order)
+
+
 # --- Mock PayPal approval page, only when no PayPal credentials are set ---
 
 @app.get("/mock-paypal/checkout", response_class=HTMLResponse)

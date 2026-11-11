@@ -15,9 +15,10 @@ Read this first in a new session. Updated before every commit.
 - F12 no double charge (lock + local status + request IDs + disabled button). **M2 done in mock mode**; its real done-criterion (one real sandbox payment) needs PayPal sandbox credentials.
 - F7 refine from feedback (prompt rule; keyless mock handles cheaper / different brand / follow-up exclusions).
 - F15 order status (`get_orders` read-only tool, filtered by the cookie user).
+- F16 refund (`draft_refund` proposal tool + Confirm refund endpoint). **M3 features done**; page design (Impeccable) and Render deploy not done (need the owner).
 
 ## In progress
-- M3: F16 refund: `draft_refund` tool (proposal only) + `POST /api/orders/{id}/refund` after the user clicks.
+- M4: eval script (`eval/`): 27 test requests, adversarial listings, snapshot, metrics, ablation runner. Labels left empty.
 
 ## Next
 - M2: F8-F14. M3: F7, F15, F16. M4: eval script. (M5 and P2 not planned for this run.)

@@ -205,3 +205,77 @@ def test_other_user_cannot_return_or_cancel():
         with pytest.raises(checkout.CheckoutError):
             fn("intruder", order["id"])
     assert store.get_order(order["id"], "u1")["status"] == "CREATED"
+
+
+# --- F16 refund ---
+
+def paid(price=2500):
+    order = approved_order(price)
+    return checkout.handle_return("u1", order["id"])
+
+
+def test_refund_after_confirm_marks_refunded_once(monkeypatch):
+    order = paid()
+    draft = checkout.refund_draft("u1", order["id"])
+    assert draft["amount_cents"] == 2500 and store.get_order(order["id"], "u1")["status"] == "COMPLETED"
+    done = checkout.refund("u1", order["id"])
+    assert done["status"] == "REFUNDED" and done["refund_id"].startswith("MOCKREF-")
+    assert f"refund-{order['id']}" in paypal_mock.responses
+    monkeypatch.setattr(checkout.paypal, "refund_capture", fail_if_called)
+    with pytest.raises(checkout.CheckoutError, match="already refunded"):
+        checkout.refund("u1", order["id"])
+    with pytest.raises(checkout.CheckoutError, match="already refunded"):
+        checkout.refund_draft("u1", order["id"])
+
+
+def test_refund_only_for_own_paid_orders(monkeypatch):
+    monkeypatch.setattr(checkout.paypal, "refund_capture", fail_if_called)
+    s, cart = session_with_cart()
+    unpaid = checkout.confirm(s, "u1", cart["id"], BASE)
+    with pytest.raises(checkout.CheckoutError, match="Only paid orders"):
+        checkout.refund("u1", unpaid["id"])
+    order = paid()
+    with pytest.raises(checkout.CheckoutError, match="not found"):
+        checkout.refund("intruder", order["id"])
+
+
+def test_refund_failure_or_pending_leaves_order_paid(monkeypatch):
+    order = paid()
+
+    def failing(*args):
+        raise paypal.PayPalError("REFUND_FAILED_INSUFFICIENT_FUNDS")
+
+    monkeypatch.setattr(checkout.paypal, "refund_capture", failing)
+    with pytest.raises(checkout.CheckoutError, match="unchanged"):
+        checkout.refund("u1", order["id"])
+    monkeypatch.setattr(checkout.paypal, "refund_capture", lambda *a: {"id": "R1", "status": "PENDING"})
+    out = checkout.refund("u1", order["id"])
+    assert out["status"] == "COMPLETED" and "PENDING" in out["note"]
+
+
+def test_simultaneous_refund_clicks_call_paypal_once(monkeypatch):
+    import threading
+    import time as _time
+    order = paid()
+    calls = []
+    real = checkout.paypal.refund_capture
+
+    def slow(*args):
+        calls.append(args)
+        _time.sleep(0.05)
+        return real(*args)
+
+    monkeypatch.setattr(checkout.paypal, "refund_capture", slow)
+    threads = [threading.Thread(target=lambda: _try_refund(order["id"])) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(calls) == 1 and store.get_order(order["id"], "u1")["status"] == "REFUNDED"
+
+
+def _try_refund(order_id):
+    try:
+        checkout.refund("u1", order_id)
+    except checkout.CheckoutError:
+        pass

@@ -118,6 +118,21 @@ function showOrder(order) {
   }
 }
 
+// F16: refund draft. PayPal is called only when the user clicks Confirm refund.
+function showRefundDraft(draft) {
+  const box = add(el("div", undefined, "summary"));
+  box.appendChild(el("strong", "Refund for order #" + draft.order_id));
+  box.appendChild(el("div", draft.items.map(i => i.quantity + " x " + i.title).join(", ")));
+  box.appendChild(el("div", "Amount: " + dollars(draft.amount_cents) + " " + draft.currency, "price"));
+  box.appendChild(el("p", "Nothing is refunded until you click Confirm refund.", "note"));
+  const button = box.appendChild(el("button", "Confirm refund"));
+  button.onclick = async () => {
+    button.disabled = true;  // one click only; the server also refuses a second refund
+    try { showOrder(await api("/api/orders/" + encodeURIComponent(draft.order_id) + "/refund", {})); }
+    catch (err) { add(el("div", "Error: " + err.message, "msg bot")); }
+  };
+}
+
 async function send(text) {
   add(el("div", text, "msg user"));
   const data = await api("/api/chat", {message: text});
@@ -125,6 +140,7 @@ async function send(text) {
   if (data.recommendations) showRecommendations(data);
   if (data.cart) showSummary(data.cart);
   if (data.orders) data.orders.forEach(showOrder);
+  if (data.refund_draft) showRefundDraft(data.refund_draft);
 }
 
 document.getElementById("form").addEventListener("submit", async e => {

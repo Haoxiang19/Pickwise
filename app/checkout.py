@@ -145,3 +145,34 @@ def handle_cancel(user_id: str, order_id: int) -> dict:
         if order["status"] == "CREATED":
             return _fail(order, "CANCELLED")
         return order
+
+
+def refund_draft(user_id: str, order_id: int) -> dict:
+    """F16, proposal only: check the order can be refunded and describe the refund. Calls nothing."""
+    order = store.get_order(order_id, user_id)
+    if order is None:
+        raise CheckoutError("Order not found.")
+    if order["status"] == "REFUNDED":
+        raise CheckoutError(f"Order #{order_id} was already refunded.")
+    if order["status"] != "COMPLETED":
+        raise CheckoutError(f"Only paid orders can be refunded; order #{order_id} is {order['status']}.")
+    return {"order_id": order["id"], "amount_cents": order["amount_cents"], "currency": order["currency"],
+            "items": order["items"]}
+
+
+def refund(user_id: str, order_id: int) -> dict:
+    """F16: the user clicked "Confirm refund". Full refund of the stored capture. Returns the updated row."""
+    with LOCK:
+        refund_draft(user_id, order_id)  # same checks: own order, COMPLETED, not refunded before
+        order = store.get_order(order_id, user_id)
+        try:
+            result = paypal.refund_capture(order["capture_id"], f"refund-{order['id']}")
+        except paypal.PayPalError as e:
+            log.warning("refund %s failed: %s", order_id, e)
+            raise CheckoutError(f"The refund did not go through ({e.issue}). The order is unchanged; you can try again.") from e
+        if result.get("status") != "COMPLETED":
+            # e.g. PENDING: not marked refunded yet; a retry with the same request ID returns the latest status.
+            store.update_order(order["id"], note=f"Refund status at PayPal: {result.get('status')}.")
+            return store.get_order(order["id"], user_id)
+        store.update_order(order["id"], status="REFUNDED", refund_id=result.get("id"), note="")
+        return store.get_order(order["id"], user_id)
