@@ -400,8 +400,8 @@ def _bundle_view(p: dict, r: dict, queries: list[str], memory_text: dict) -> dic
 def recommend_bundle(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.search, seed: int | None = None) -> dict:
     """F22: search and rank each item on its own, then code picks the best set within the total budget.
 
-    The model ranks; it never splits the budget or chooses the set. Steps follow
-    docs/multi-item-plan.md section 8.
+    The model ranks; it never splits the budget or chooses the set. The steps are numbered below
+    and described in docs/implementation.md (F22).
     """
     seed = random.randrange(2**31) if seed is None else seed
     budget, items = request["budget_cents"], request["items"]

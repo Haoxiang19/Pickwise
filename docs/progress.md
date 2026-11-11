@@ -25,7 +25,7 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Prices are refreshed from the catalog before a cart is priced (free `GET /v1/products/{id}`); a changed price is shown to the user, a vanished or sold-out product refuses the cart.
 - Retrieval asks the catalog for affordable products (`filters.price.max_price`), plus one extra unfiltered search so the ruled-out list still works. An approximate budget ("around $70") is widened by 20% in code and that one figure is used everywhere. New eval row "+ budget filter"; the snapshot captures the capped results in the same pass.
 - F20 'What I remember' panel: list and delete own entries (`GET/DELETE /api/memory`). **M5 done in keyless mode.**
-- F21 multi-item cart (commit 1 of `docs/multi-item-plan.md`): up to 6 products per cart, server total, budget on the total, `prepare_cart` and `/api/cart` accept `items`, one summary row per item. Research for F21-F23 recorded in `docs/decisions.md`.
+- F21 multi-item cart (commit 1 of the multi-item work order): up to 6 products per cart, server total, budget on the total, `prepare_cart` and `/api/cart` accept `items`, one summary row per item. Research for F21-F23 recorded in `docs/decisions.md`.
 - F21 PayPal line items (commit 2): every create request, single-item orders included, now carries `purchase_units[0].items` and `amount.breakdown.item_total`; the code refuses to send if the items do not add up to the amount, and the mock checks the same sums.
 - F22 core (commit 3): `parse_bundle`, `best_combo`, `recommend_bundle` in `app/recommend.py`, tested with a fake catalog. Owner's choice: a product found for several items belongs to the first item.
 - F22 in the app (commit 4): `recommend_bundle` agent tool, keyless mock reads "a tent, a sleeping bag and a lantern under $500" as a set and "buy the set" as a cart, 5 products added to the mock catalog for the demo, page shows one group per item with radio buttons and a "Review this set" button. Clicked through in the browser in keyless mode: $500 / $180 / $100 sets, swap and review, Confirm, mock approve, status, full refund; single-product purchase still works.
@@ -34,7 +34,7 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 
 ## In progress
 - M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode.
-- P2 "multiple items per order": planned as F21 (multi-item cart, PayPal line items), F22 (set recommendation) and F23 (refund by line) in `docs/multi-item-plan.md`. **All 5 commits (F21, F22, F23) done** in keyless mode. `docs/multi-item-plan.md` says it is deleted once the work is done; kept until the owner confirms.
+- P2 "multiple items per order" is done in keyless mode as F21 (multi-item cart, PayPal line items), F22 (set recommendation) and F23 (refund by line), in 5 commits. The work order `docs/multi-item-plan.md` was deleted on 2026-11-11 after completion, as it asked; what was built is in `docs/implementation.md`, the research in `docs/decisions.md`, and the file remains in git history.
 
 ## Next steps for the owner (in order)
 1. Put keys in `.env` (copy `.env.example`; never commit it): `LLM_*`, `CHANNEL3_API_KEY`, `PAYPAL_CLIENT_ID/SECRET`. For DeepSeek set `LLM_EXTRA_BODY={"thinking": {"type": "disabled"}}`. Note: the app reads environment variables only; it does not load `.env` by itself (no extra dependency). Export them in the shell, or use `uvicorn --env-file .env` (needs the `python-dotenv` package, not installed).
