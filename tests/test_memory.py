@@ -121,7 +121,7 @@ def test_memory_reaches_ranker_as_soft_preference_and_reason_names_it(monkeypatc
     request = rec.parse_request({"raw_request": "x", "budget_usd": 50})
     request["memory"] = [{"id": 7, "text": "Prefers Sony"}]
     flags = {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 1, "use_memory": True}
-    out = rec.recommend(request, flags, lambda q, limit: products, seed=1)
+    out = rec.recommend(request, flags, lambda q, limit, cap=None: products, seed=1)
     assert "[m7] Prefers Sony" in seen["user"] and "current request wins" in seen["user"]
     first, second = out["recommendations"][:2]
     assert first["reason"] == 'Sony, as you like. Based on what I remember: "Prefers Sony".' and first["memory_used"] == "Prefers Sony"
@@ -142,10 +142,12 @@ def test_memory_off_hides_profile_and_never_affects_hard_filter(monkeypatch):
     cheap = dict(sony, id="cheap", brand="Other", title="Other thing", price_cents=1000)
     request = rec.parse_request({"raw_request": "x", "budget_usd": 50})
     request["memory"] = [{"id": 1, "text": "Prefers Sony"}]
-    on = rec.recommend(request, {"multi_query": True, "reasoning_rank": True, "use_memory": True}, lambda q, l: [sony, cheap], seed=1)
+    flags_on = {"multi_query": True, "reasoning_rank": True, "use_memory": True}
+    on = rec.recommend(request, flags_on, lambda q, l, cap=None: [sony, cheap], seed=1)
     assert [r["id"] for r in on["recommendations"]] == ["cheap"]
     assert on["rejected"][0]["id"] == "sony" and on["rejected"][0]["kind"] == "over_budget"  # memory cannot lift the budget
-    rec.recommend(request, {"multi_query": True, "reasoning_rank": True, "use_memory": False}, lambda q, l: [sony, cheap], seed=1)
+    flags_off = {"multi_query": True, "reasoning_rank": True, "use_memory": False}
+    rec.recommend(request, flags_off, lambda q, l, cap=None: [sony, cheap], seed=1)
     assert "Remembered" in prompts[0] and "Remembered" not in prompts[1]
 
 

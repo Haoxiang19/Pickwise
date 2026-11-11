@@ -24,6 +24,7 @@ If the user says there is no limit, call `recommend` without `budget_usd` and do
 - `queries` are 3 to 4 concrete search queries, each naming a product type a store would sell. \
 For a vague need or a gift, cover different kinds of products.
 - `must_not` holds short keywords the user wants to avoid, such as a brand or a material.
+- Set `budget_is_strict` to false when the budget is approximate ("around $100", "about $50"); leave it true for a firm maximum ("under $100", "at most $50"). It only decides how the catalog is searched; the budget you give is always applied.
 - When the user refines ("cheaper", "a different brand", "no plastic"), call `recommend` again with the full updated \
 request: keep every earlier condition unless the user changed it.
 - Only mention products and prices that came from a tool result. Never invent them.
@@ -46,6 +47,7 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {
             "raw_request": {"type": "string", "description": "The user's need in their own words, including conditions from earlier turns."},
             "budget_usd": {"type": "number", "description": "Maximum price in US dollars. Leave out only if the user said there is no limit."},
+            "budget_is_strict": {"type": "boolean", "description": "False when the budget is approximate ('around $100'); true for a firm maximum. Default true."},
             "must_have": {"type": "array", "items": {"type": "string"}, "description": "Features the product must have."},
             "must_not": {"type": "array", "items": {"type": "string"}, "description": "Short keywords to exclude, such as a brand or material."},
             "preferences": {"type": "array", "items": {"type": "string"}, "description": "Soft preferences."},

@@ -10,7 +10,7 @@ def product(pid, price=1000, in_stock=True, title=None, brand="B", currency="USD
 
 
 def fake_search(results_by_query):
-    return lambda query, limit: results_by_query.get(query, [])[:limit]
+    return lambda query, limit, max_price=None: results_by_query.get(query, [])[:limit]
 
 
 def test_parse_request_converts_budget_and_cleans_lists():
@@ -157,3 +157,74 @@ def test_recommend_fewer_than_three_explains_why(monkeypatch):
     assert "2 were removed (1 over budget, 1 out of stock)" in result["note"]
     nothing = rec.recommend(rec.parse_request({"raw_request": "none"}), search_fn=search)
     assert nothing["recommendations"] == [] and nothing["note"]
+
+
+# --- The price cap at retrieval (the budget guarantee stays in hard_filter) ---
+
+def capped_search(products):
+    """A catalog that honours a price cap, like Channel3's filters.price."""
+    def search(query, limit, max_price_cents=None):
+        out = [p for p in products if max_price_cents is None or (p["price_cents"] or 0) <= max_price_cents]
+        return out[:limit]
+    return search
+
+
+BUDGET_FLAGS = {"multi_query": True, "reasoning_rank": False, "budget_filter": True}
+
+
+def test_cap_fills_the_candidate_pool_with_affordable_products():
+    pricey = [product(f"x{i}", price=30000) for i in range(rec.SEARCH_LIMIT)]
+    cheap = [product("cheap", price=4000)]
+    request = rec.parse_request({"raw_request": "headphones", "budget_usd": 50, "queries": ["headphones"]})
+    assert request["budget_strict"] is True
+
+    uncapped = rec.recommend(request, {"multi_query": True, "reasoning_rank": False}, capped_search(pricey + cheap))
+    capped = rec.recommend(request, BUDGET_FLAGS, capped_search(pricey + cheap))
+    # Without the cap the 10-result limit is spent on products the user cannot afford.
+    assert [p["id"] for p in uncapped["candidates"]] == []
+    assert [p["id"] for p in capped["candidates"]] == ["cheap"]
+
+
+def test_cap_still_shows_what_the_budget_ruled_out():
+    products = [product("over", price=30000), product("ok", price=4000)]
+    request = rec.parse_request({"raw_request": "headphones", "budget_usd": 50, "queries": ["headphones"]})
+    out = rec.recommend(request, BUDGET_FLAGS, capped_search(products))
+    assert [r["id"] for r in out["rejected"]] == ["over"]  # from the extra unfiltered search
+    assert out["rejected"][0]["reason"].startswith("over budget")
+    assert [p["id"] for p in out["candidates"]] == ["ok"]  # the over-budget one never becomes a candidate
+
+
+def test_an_approximate_budget_is_not_capped():
+    """The model says how the budget was phrased; the number itself is always enforced."""
+    request = rec.parse_request({"raw_request": "around $50", "budget_usd": 50, "budget_is_strict": False,
+                                 "queries": ["headphones"]})
+    assert request["budget_strict"] is False
+    seen = []
+
+    def search(query, limit, max_price_cents=None):
+        seen.append(max_price_cents)
+        return [product("over", price=6000)]
+
+    out = rec.recommend(request, BUDGET_FLAGS, search)
+    assert seen == [None]  # no cap sent to the catalog
+    assert out["recommendations"] == [] and out["rejected"][0]["kind"] == "over_budget"  # still enforced in code
+
+
+def test_the_cap_never_decides_the_budget():
+    """Even if the catalog ignores the cap, the hard filter removes the over-budget product."""
+    request = rec.parse_request({"raw_request": "x", "budget_usd": 50, "queries": ["x"]})
+    ignores_cap = lambda q, limit, max_price_cents=None: [product("over", price=9900)]
+    out = rec.recommend(request, BUDGET_FLAGS, ignores_cap)
+    assert out["recommendations"] == [] and out["rejected"][0]["kind"] == "over_budget"
+
+
+def test_no_budget_means_no_cap_and_no_extra_search():
+    seen = []
+
+    def search(query, limit, max_price_cents=None):
+        seen.append((query, max_price_cents))
+        return [product("a", price=100)]
+
+    request = rec.parse_request({"raw_request": "anything", "queries": ["q1", "q2"]})
+    rec.recommend(request, BUDGET_FLAGS, search)
+    assert seen == [("q1", None), ("q2", None)]

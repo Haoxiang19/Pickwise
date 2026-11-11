@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 import httpx
 
-from app.money import to_cents
+from app.money import to_cents, to_dollars
 
 log = logging.getLogger(__name__)
 
@@ -37,9 +37,13 @@ def enabled() -> bool:
     return bool(os.getenv("CHANNEL3_API_KEY"))
 
 
-def search(query: str, limit: int = 10) -> list[dict]:
-    """Return up to `limit` normalized products for one query."""
-    raw = _channel3_search(query, limit) if enabled() else _mock_search(query, limit)
+def search(query: str, limit: int = 10, max_price_cents: int | None = None) -> list[dict]:
+    """Return up to `limit` normalized products for one query, optionally capped by price.
+
+    The cap is a retrieval filter only: it keeps the candidate pool full of products the user can
+    afford. The budget itself is still enforced in `app/recommend.py`, whatever is passed here.
+    """
+    raw = _channel3_search(query, limit, max_price_cents) if enabled() else _mock_search(query, limit, max_price_cents)
     return [normalize(r) for r in raw]
 
 
@@ -83,10 +87,12 @@ def _send(request, what: str, allow_404: bool = False) -> dict | None:
         raise CatalogError(f"unexpected {what} response: {e}") from e
 
 
-def _channel3_search(query: str, limit: int) -> list[dict]:
-    # The budget is deliberately not sent as a filter: over-budget items must reach the hard filter
-    # so the user can see them rejected with a reason.
+def _channel3_search(query: str, limit: int, max_price_cents: int | None = None) -> list[dict]:
     body = {"query": query, "limit": limit, "config": {"currency": "USD", "country": "US"}}
+    if max_price_cents is not None:
+        # Channel3 keeps a product when at least one of its offers matches, so this is a cap on the
+        # cheapest offer, not a promise that the offer we pick is under it. The hard filter re-checks.
+        body["filters"] = {"price": {"max_price": float(to_dollars(max_price_cents))}}
     data = _send(lambda: httpx.post(CHANNEL3_URL, json=body, headers=_headers(), timeout=30), "search")
     try:
         return data["products"]
@@ -124,12 +130,20 @@ def _tokens(text: str) -> set[str]:
     return {w[:-1] if len(w) > 3 and w.endswith("s") else w for w in words if w not in STOPWORDS}
 
 
-def _mock_search(query: str, limit: int) -> list[dict]:
+def _affordable(raw: dict, max_price_cents: int) -> bool:
+    """Mirrors Channel3's rule: a product matches a filter when at least one of its offers does."""
+    prices = [c for c in (_offer_cents(o) for o in raw.get("offers") or []) if c is not None]
+    return any(c <= max_price_cents for c in prices)
+
+
+def _mock_search(query: str, limit: int, max_price_cents: int | None = None) -> list[dict]:
     """Rank mock products by how many query words appear in their text."""
     products = json.loads(MOCK_PATH.read_text(encoding="utf-8"))
     q = _tokens(query)
     scored = []
     for p in products:
+        if max_price_cents is not None and not _affordable(p, max_price_cents):
+            continue
         other = " ".join([p["description"], p["category"]["title"], p["brands"][0]["name"]])
         # Title words count double, so "water bottle" ranks a bottle above a backpack with a bottle pocket.
         score = 2 * len(q & _tokens(p["title"])) + len(q & _tokens(other))

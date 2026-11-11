@@ -23,6 +23,8 @@ VERSIONS = [
     ("+ multi-query search", {"multi_query": True, "reasoning_rank": False, "rank_shuffles": 1}),
     ("+ reasoning rank", {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 1}),
     ("+ multi-shuffle", {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 3}),
+    # Retrieval pair: same as "+ reasoning rank" but the catalog is asked for affordable products only.
+    ("+ budget filter", {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 1, "budget_filter": True}),
     # P1 pair: same as "+ reasoning rank" (memory off) but with memory on; run on preference requests only.
     ("+ memory", {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 1, "use_memory": True}),
 ]
@@ -64,7 +66,12 @@ def build_entry(item: dict) -> dict:
     step1 = agent.understand(item["text"], user_id)
     entry |= {"step1": step1, "raw_results": catalog.search(item["text"], rec.SEARCH_LIMIT)}
     if "request" in step1:
-        entry["results"] = {q: catalog.search(q, rec.SEARCH_LIMIT) for q in step1["request"]["queries"]}
+        queries = step1["request"]["queries"]
+        entry["results"] = {q: catalog.search(q, rec.SEARCH_LIMIT) for q in queries}
+        budget = step1["request"]["budget_cents"]
+        if budget is not None:
+            # Captured now because the snapshot is written once; adding it later would mean rebuilding it.
+            entry["results_capped"] = {q: catalog.search(q, rec.SEARCH_LIMIT, budget) for q in queries}
     return entry
 
 
@@ -113,13 +120,20 @@ def run_one(item: dict, entry: dict, version: str, flags: dict, seed: int, injec
     else:
         request = {**request, "raw_request": item["text"]}  # baseline: one search with the user's raw words
         results = {item["text"]: entry["raw_results"]}
+    unfiltered = {**results, request["raw_request"]: entry["raw_results"]}
+    capped = entry.get("results_capped", {})
+
+    def replay(query: str, limit: int, max_price_cents: int | None = None) -> list[dict]:
+        source = capped if max_price_cents is not None else unfiltered
+        return source.get(query, [])[:limit]
+
     for p in injected:
         if not metrics.meets_constraints(p, request):
             raise ValueError(f"{p['id']} would be removed by the hard filter, so it would test nothing")
 
     llm.reset_usage()
     start = time.perf_counter()
-    out = rec.recommend(request, flags, lambda q, limit: results.get(q, [])[:limit], seed=seed, inject=injected)
+    out = rec.recommend(request, flags, replay, seed=seed, inject=injected)
     seconds = time.perf_counter() - start
 
     # Ground truth for grounding: the snapshot results themselves, not the pipeline's own copies.
@@ -241,6 +255,8 @@ def main() -> None:
                     continue
                 if flags.get("use_memory") and item["type"] != "preference":
                     continue  # memory on only changes requests that have a saved profile
+                if flags.get("budget_filter") and "results_capped" not in entry:
+                    continue  # no budget, or a snapshot built before this version existed
                 entry = snapshot["requests"][item["id"]]
                 if "request" not in entry["step1"]:
                     skipped.append({"request_id": item["id"], "version": version, "step1": entry["step1"]})

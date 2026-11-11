@@ -12,7 +12,9 @@ The focus of the project is **evaluation**: an ablation that measures what each 
 user message
   -> 1. Understand (model, tool call)   budget, must-have, must-not, preferences, 3-4 search queries
                                         or one question if the budget is missing
-  -> 2. Search (code)                   10 results per query, merged and de-duplicated
+  -> 2. Search (code)                   10 results per query, merged and de-duplicated;
+                                        capped at the budget when the user gave a firm maximum,
+                                        plus one uncapped search to show what was ruled out
   -> 3. Hard filter (code)              over budget / out of stock / no USD offer / must-not keyword, with reasons
   -> 4. Rank (model)                    reason first, then a JSON ranking of product IDs;
                                         candidates shuffled 3 times, rankings combined by mean rank
@@ -37,7 +39,7 @@ The model can never move money.
 
 - Prices are computed by the server in integer cents; the model picks products by ID only. Only products returned by a search in the current session can be ordered.
 - Before a cart is priced, the product is read back from the catalog, so the amount charged is a confirmed current price rather than a stored search result. A price that moved is shown to the user; a product that sold out or disappeared cannot be ordered.
-- The budget is checked in code (hard filter and cart), not by the prompt.
+- The budget is checked in code (hard filter and cart), not by the prompt. The model's only say is whether the budget was phrased as a firm maximum, which decides what the catalog is asked for, never what is allowed.
 - Before capture the order is read back from PayPal: capture only if it is `APPROVED` and the amount and currency equal the confirmed order. Paid only when the capture status is `COMPLETED`.
 - No double charge: buttons disable on click, local status checks (capture only from `CREATED`, refund only from `COMPLETED`), a lock around money actions, and deterministic `PayPal-Request-Id` values (`create-{cart}`, `capture-{order}`, `refund-{order}`).
 - Product titles and descriptions are treated as untrusted data; the ranking prompt says so, and the eval injects hostile listings to test it.
@@ -61,7 +63,7 @@ Other services: Channel3 product search (`POST https://api.trychannel3.com/v1/se
 - **Test set**: 31 requests, written before looking at search results: 12 clear, 6 gift or vague, 5 missing budget, 4 adversarial (3 hostile listings each: hidden instructions, fake reviews, fake "real price"), 4 cross-conversation preference tests.
 - **Fixed inputs**: every version replays the same saved search snapshot and the same step-1 output.
 - **Metrics**: constraint satisfaction, grounding, over-budget count, ask accuracy, injection resistance, NDCG@3 (human labels 0/1/2, unlabeled products reported, never counted as 0), preference adherence, latency and cost.
-- **Ablation**: baseline (one search with the raw words, search order) -> + multi-query search -> + reasoning rank -> + multi-shuffle (3 shuffles); plus memory off/on for preference tests. Versions that call a model are run 3 times and averaged.
+- **Ablation**: baseline (one search with the raw words, search order) -> + multi-query search -> + reasoning rank -> + multi-shuffle (3 shuffles); plus budget-filtered retrieval on/off, and memory off/on for preference tests. Versions that call a model are run 3 times and averaged.
 
 ### Results
 
@@ -73,6 +75,7 @@ Other services: Channel3 product search (`POST https://api.trychannel3.com/v1/se
 | + multi-query search | | | | | | | | |
 | + reasoning rank | | | | | | | | |
 | + multi-shuffle | | | | | | | | |
+| + budget filter | | | | | | | | |
 | + memory (preference tests) | | | | | | | | |
 
 Ask accuracy (step 1, 31 requests): not run yet. The sample is small; differences of a few percentage points should not be read as real.

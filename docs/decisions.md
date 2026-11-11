@@ -119,3 +119,40 @@ No code was copied.
 - Cost: one free call per Choose click. The 15-minute cart quote is unchanged; it now starts from a confirmed price.
 
 No code was copied.
+
+## F3, F4 Asking the catalog for affordable products
+
+**The problem.** Each query takes the top 10 results by relevance. For a $50 budget, those ten can
+all cost $150 or more, so the hard filter removes almost everything and the ranker is left with two
+or three candidates. The candidate pool, not the ranker, is the limit on quality.
+
+**Looked at (2026-11-11)** — Channel3's own docs, since this is about one provider's filters:
+- Search reference (https://channel3.mintlify.dev/docs/api-reference/v1/search.md): `filters` is a
+  top-level request field, so `filters.price.{min_price,max_price}` (dollars) works in every search
+  mode, not only `agentic`. Defaults are `conditions: ["new"]` and `availability: ["InStock"]`.
+- Offer guide (https://channel3.mintlify.dev/docs/guides/offer.md): a product passes a filter when at
+  least one of its offers matches, and the response still carries every offer. So a price cap bounds
+  the cheapest offer, not the offer this app ends up choosing.
+- Agentic guide (https://channel3.mintlify.dev/docs/guides/agentic-search.md): the planner infers
+  filters from the text, and "The filters you provide override the filters set by the agent."
+
+**Chosen.** Send `filters.price.max_price` on the per-query searches, and keep every budget
+guarantee in code.
+- **The model decides only the phrasing.** `recommend` gained `budget_is_strict`: false for "around
+  $100", true for "under $100", true by default. It decides whether the catalog is asked for
+  affordable products; it never decides what the budget is. `rejection()` and the cart check always
+  use the number the user gave, so a wrong call by the model costs a worse candidate pool, never an
+  unaffordable recommendation. This keeps the rule "the budget is checked in code, not by the prompt".
+  Letting the model also widen the budget for an approximate phrasing was rejected: it would put the
+  spending limit in the model's hands, and "around $100" would quietly become a number nobody chose.
+- **One extra unfiltered search** on the raw request keeps F6 working. With the cap on, nothing over
+  budget comes back, so the "ruled out" list would be empty; this search exists only to fill it, and
+  its products never become candidates. Cost: one credit per request, not double.
+- **Not `agentic` mode.** The planner would extract a price from the text as well, but it returns no
+  sub-queries, no ranking reasons and no way to see what it filtered, and this project needs the
+  rejected products. Mode and filters are separate choices, and only the filter was needed.
+- **Measured, not assumed.** `budget_filter` is an eval flag and "+ budget filter" is an ablation row,
+  so the hypothesis (a fuller pool of affordable products raises NDCG@3) can be checked rather than
+  believed. The snapshot captures the capped results in the same pass, because it is written once.
+
+No code was copied.

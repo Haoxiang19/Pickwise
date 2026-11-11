@@ -17,7 +17,8 @@ MAX_QUERIES = 4
 MAX_RANKED = 6
 DESCRIPTION_CHARS = 200
 MISSING_RANK = MAX_RANKED + 1  # F17: a product a ranking does not list counts as rank 7
-DEFAULT_FLAGS = {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 3, "use_memory": True}
+DEFAULT_FLAGS = {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 3, "use_memory": True,
+                 "budget_filter": True}
 MEMORY_STOPWORDS = {"prefers", "likes", "loves", "the", "brand", "a", "an", "of", "for", "and", "always", "buys"}
 
 RANK_PROMPT = """You rank products for a shopper.
@@ -47,19 +48,37 @@ def parse_request(args: dict) -> dict:
         "must_not": words("must_not"),
         "preferences": words("preferences"),
         "queries": words("queries")[:MAX_QUERIES] or [raw],
+        # The model reads the phrasing ("under $100" vs "around $100"); it only decides whether the
+        # catalog is asked for affordable products, never what the budget is.
+        "budget_strict": args.get("budget_is_strict") is not False,
     }
 
 
-def search_all(queries: list[str], search_fn=catalog.search) -> list[dict]:
+def search_all(queries: list[str], search_fn=catalog.search, max_price_cents: int | None = None) -> list[dict]:
     """F3: run every query, merge and de-duplicate by ID.
 
     A product found by several queries keeps the index of the first query that returned it.
     """
     merged = {}
     for qi, query in enumerate(queries):
-        for p in search_fn(query, SEARCH_LIMIT):
+        for p in search_fn(query, SEARCH_LIMIT, max_price_cents):
             merged.setdefault(p["id"], {**p, "query_index": qi})
     return list(merged.values())
+
+
+def over_budget_examples(request: dict, search_fn, budget_cents: int) -> list[dict]:
+    """One extra search without the price cap, only to show what the budget ruled out (F6).
+
+    These products never become candidates: the point is to tell the user what a higher budget
+    would buy, not to rank things they cannot afford.
+    """
+    rejected = []
+    for p in search_fn(request["raw_request"], SEARCH_LIMIT, None):
+        r = rejection(p, budget_cents, request["must_not"])
+        if r and r[0] == "over_budget":
+            rejected.append({"id": p["id"], "title": p["title"], "price_cents": p["price_cents"],
+                             "kind": r[0], "reason": r[1]})
+    return rejected
 
 
 def rejection(p: dict, budget_cents: int | None, must_not: list[str]) -> tuple[str, str] | None:
@@ -252,8 +271,16 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
     """
     queries = request["queries"] if flags["multi_query"] else [request["raw_request"]]
     seed = random.randrange(2**31) if seed is None else seed
-    products = [{**p, "query_index": 0} for p in inject] + search_all(queries, search_fn)
-    candidates, rejected = hard_filter(products, request["budget_cents"], request["must_not"])
+    budget = request["budget_cents"]
+    # Ask the catalog for affordable products only when the user gave a firm maximum. This is a
+    # retrieval optimisation; the budget itself is still enforced by hard_filter below.
+    cap = budget if flags.get("budget_filter") and budget is not None and request.get("budget_strict", True) else None
+    products = [{**p, "query_index": 0} for p in inject] + search_all(queries, search_fn, cap)
+    candidates, rejected = hard_filter(products, budget, request["must_not"])
+    if cap is not None:
+        # The capped searches return nothing over budget, so fetch a few examples to show as ruled out.
+        seen = {r["id"] for r in rejected}
+        rejected += [r for r in over_budget_examples(request, search_fn, budget) if r["id"] not in seen]
     shuffles = flags.get("rank_shuffles", 1)
     # F19: memory only reaches the ranker, as soft preferences; hard constraints come from this request alone.
     memories = list(request.get("memory") or []) if flags.get("use_memory") else []
@@ -278,7 +305,7 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
         why = ", ".join(f"{n} {kind}" for kind, n in counts.items()) or "the search returned few matches"
         note = (f"Only {len(recommendations)} product(s) passed the filters; {len(rejected)} were removed ({why}). "
                 "Try a higher budget or fewer exclusions.")
-    log.info("recommend %s", json.dumps({"queries": queries, "seed": seed, "shuffles": shuffles, "memory": [m["id"] for m in memories], "candidates": [p["id"] for p in candidates],
+    log.info("recommend %s", json.dumps({"queries": queries, "seed": seed, "shuffles": shuffles, "price_cap": cap, "memory": [m["id"] for m in memories], "candidates": [p["id"] for p in candidates],
                                          "rejected": [[r["id"], r["kind"]] for r in rejected],
                                          "ranking": [r["id"] for r in ranking], "picks": [r["id"] for r in picks]}))
     return {"recommendations": recommendations, "rejected": rejected, "note": note, "queries": queries,

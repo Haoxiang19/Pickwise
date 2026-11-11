@@ -16,6 +16,7 @@ AMOUNT = re.compile(
     re.I)
 EXCLUDE = re.compile(r"\b(?:no|not|without|avoid)\s+([a-z0-9][\w-]*)", re.I)
 NOT_KEYWORDS = {"budget", "limit", "price", "more", "too", "than", "idea"}
+APPROX = re.compile(r"(around|about|roughly|approximately|or so|ish)|~", re.I)
 PICK = re.compile(r"\b(?:buy|take|choose|pick|get|want)\b.*?\b(first|1st|second|2nd|third|3rd|1|2|3)\b", re.I)
 ORDINALS = {"first": 0, "1st": 0, "1": 0, "second": 1, "2nd": 1, "2": 1, "third": 2, "3rd": 2, "3": 2}
 CHEAPER = re.compile(r"\b(cheaper|less expensive|lower price)\b", re.I)
@@ -58,6 +59,7 @@ def build_request(text: str, budget: float | None) -> dict:
     args = {"raw_request": text, "must_not": must_not, "queries": queries}
     if budget is not None:
         args["budget_usd"] = budget
+        args["budget_is_strict"] = not APPROX.search(text)
     return args
 
 

@@ -70,7 +70,7 @@ def test_one_shuffle_equals_plain_rank(monkeypatch):
 
 def test_recommend_counts_three_ranking_calls_in_mock_mode(monkeypatch):
     monkeypatch.delenv("LLM_API_KEY", raising=False)
-    search = lambda q, limit: [dict(c, query_index=0) for c in candidates()][:limit]
+    search = lambda q, limit, cap=None: [dict(c, query_index=0) for c in candidates()][:limit]
     request = rec.parse_request({"raw_request": "x", "budget_usd": 10})
     llm.reset_usage()
     out = rec.recommend(request, {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 3}, search, seed=1)

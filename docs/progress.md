@@ -23,8 +23,9 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Page states the concierge-style simulation (requirements section 1); README drafted with an empty results table.
 - Channel3 compatibility pass against the docs: price field fallback, availability semantics, one retry on 429/5xx, `country` in the request.
 - Prices are refreshed from the catalog before a cart is priced (free `GET /v1/products/{id}`); a changed price is shown to the user, a vanished or sold-out product refuses the cart.
+- Retrieval asks the catalog for affordable products (`filters.price.max_price`) when the model marks the budget as firm, plus one extra unfiltered search so the ruled-out list still works. New eval row "+ budget filter"; the snapshot captures the capped results in the same pass.
 - F20 'What I remember' panel: list and delete own entries (`GET/DELETE /api/memory`). **M5 done in keyless mode.**
-- State: 162 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- State: 167 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
 - Nothing. M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode. P2 not started.
@@ -37,7 +38,7 @@ Read this first in a new session. Updated before every commit. Last update: 2026
    - that `brands[0].name`, `images[].is_main_image` and `category.title` are populated;
    - what `GET /v1/products/{id}` returns (the product at the top level, or wrapped in `"product"`); the code accepts both;
    - whether `offers[].url` and `max_commission_rate` are populated, and how many results carry a `variants` object with a `selected` entry. Both feed the deferred decisions below.
-   Budget: one eval snapshot costs about 130 search credits out of 1,000 free per month, so do not rebuild it casually. There is no test key; every call is billed.
+   Budget: one eval snapshot costs roughly 230 search credits out of 1,000 free per month (each request is searched once per query, once on the raw text, and once per query capped at its budget), so do not rebuild it casually. There is no test key; every call is billed.
 3. Check DeepSeek function calling with the app: does it ask for the budget, call `recommend` with good queries, keep earlier conditions on refine.
 4. One real sandbox payment with a sandbox personal account (M2 done-criterion). Check: `payer-action` link, read-back status `APPROVED`, capture status, refund status.
 5. Impeccable design (`/impeccable init`, `craft`, `audit`), then deploy to Render with `APP_BASE_URL` set to the public URL.
@@ -80,6 +81,7 @@ rolling out, and search results do not carry live per-variant stock.
 - Render deploy, phone-width layout, `secure` cookie behind Render's proxy.
 
 ## Questions for the owner
+- **The price cap is on by default in the app** (`DEFAULT_FLAGS["budget_filter"]`), which costs one extra search per request with a budget. Turn it off if credits get tight; the eval measures whether it is worth it.
 - **Capture with no answer from PayPal** (network error or HTTP 5xx): requirements say "anything else -> CAPTURE_FAILED". I kept the order `CREATED` with a note and a "Check again" link instead, because the capture may have succeeded at PayPal and "Nothing was charged" could be false. A retry uses the same `capture-{id}` request ID. Please confirm or tell me to switch to `CAPTURE_FAILED`.
 - **Capture status `PENDING`**: per requirements it becomes `CAPTURE_FAILED` with the message "Payment failed. Nothing was charged." For a real pending capture the money may still move. Kept as specified; the note shows the status. OK?
 - **Refund status other than `COMPLETED`** (e.g. `PENDING`): order stays `COMPLETED` with a note; a retry uses the same request ID. OK?
