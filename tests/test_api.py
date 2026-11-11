@@ -150,6 +150,23 @@ def test_set_request_review_swap_confirm_and_pay(client):
     assert [i["title"] for i in order["items"]] == [p["title"] for p in picks]
 
 
+def test_refund_endpoint_with_and_without_lines(client):
+    data = client.post("/api/chat", json={"message": "a tent, a sleeping bag and a lantern under $500"}).json()
+    picks = [g["chosen"] for g in data["bundle"]["items"]]
+    cart = client.post("/api/cart", json={"items": [{"product_id": p["id"]} for p in picks]}).json()
+    confirm = client.post("/api/confirm", json={"cart_id": cart["cart_id"]}).json()
+    token = confirm["approve_url"].split("token=")[1]
+    client.post("/mock-paypal/approve", content=f"token={token}", headers={"Content-Type": "application/x-www-form-urlencoded"})
+    oid = confirm["order_id"]
+    draft = client.post("/api/chat", json={"message": f"refund item 2 of order {oid}"}).json()["refund_draft"]
+    assert [l["line"] for l in draft["lines"]] == [2] and draft["amount_cents"] == picks[1]["price_cents"]
+    part = client.post(f"/api/orders/{oid}/refund", json={"lines": [2]}).json()
+    assert part["status"] == "PARTIALLY_REFUNDED" and part["refunded_cents"] == picks[1]["price_cents"]
+    assert [i["refunded"] for i in part["items"]] == [False, True, False]
+    rest = client.post(f"/api/orders/{oid}/refund").json()  # no body: every line not refunded yet
+    assert rest["status"] == "REFUNDED" and rest["refunded_cents"] == rest["amount_cents"]
+
+
 def test_set_over_the_budget_is_refused_by_the_server(client):
     data = client.post("/api/chat", json={"message": "a tent, a sleeping bag and a lantern under $180"}).json()
     groups = data["bundle"]["items"]

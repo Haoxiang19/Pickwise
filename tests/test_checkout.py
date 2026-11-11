@@ -237,8 +237,9 @@ def test_refund_after_confirm_marks_refunded_once(monkeypatch):
     draft = checkout.refund_draft("u1", order["id"])
     assert draft["amount_cents"] == 2500 and store.get_order(order["id"], "u1")["status"] == "COMPLETED"
     done = checkout.refund("u1", order["id"])
-    assert done["status"] == "REFUNDED" and done["refund_id"].startswith("MOCKREF-")
-    assert f"refund-{order['id']}" in paypal_mock.responses
+    # F23: a single-item order is one line, refunded by one call for the full amount.
+    assert done["status"] == "REFUNDED" and done["items"][0]["refund_id"].startswith("MOCKREF-")
+    assert paypal_mock.responses[f"refund-{order['id']}-1"]["amount"] == {"value": "25.00", "currency_code": "USD"}
     monkeypatch.setattr(checkout.paypal, "refund_capture", fail_if_called)
     with pytest.raises(checkout.CheckoutError, match="already refunded"):
         checkout.refund("u1", order["id"])
@@ -264,11 +265,12 @@ def test_refund_failure_or_pending_leaves_order_paid(monkeypatch):
         raise paypal.PayPalError("REFUND_FAILED_INSUFFICIENT_FUNDS")
 
     monkeypatch.setattr(checkout.paypal, "refund_capture", failing)
-    with pytest.raises(checkout.CheckoutError, match="unchanged"):
-        checkout.refund("u1", order["id"])
+    # F23: the failure is reported on the order (a multi-line refund may have refunded earlier lines).
+    out = checkout.refund("u1", order["id"])
+    assert out["status"] == "COMPLETED" and "Line 1 (Mat) was not refunded (REFUND_FAILED_INSUFFICIENT_FUNDS)" in out["note"]
     monkeypatch.setattr(checkout.paypal, "refund_capture", lambda *a: {"id": "R1", "status": "PENDING"})
     out = checkout.refund("u1", order["id"])
-    assert out["status"] == "COMPLETED" and "PENDING" in out["note"]
+    assert out["status"] == "COMPLETED" and "PENDING" in out["note"] and "refund_id" not in out["items"][0]
 
 
 def test_simultaneous_refund_clicks_call_paypal_once(monkeypatch):
@@ -290,6 +292,110 @@ def test_simultaneous_refund_clicks_call_paypal_once(monkeypatch):
     for t in threads:
         t.join()
     assert len(calls) == 1 and store.get_order(order["id"], "u1")["status"] == "REFUNDED"
+
+
+# --- F23 refund by line ---
+
+def paid_two_lines(prices=(1500, 250), quantities=(1, 4)):
+    """A paid order with two lines: 1 x A at $15.00 and 4 x B at $2.50 (total $25.00)."""
+    s = store.Session()
+    for pid, price in zip("ab", prices):
+        s.products[pid] = {"id": pid, "title": pid.upper(), "price_cents": price, "in_stock": True, "currency": "USD"}
+    cart = store.create_cart_items(s, list(zip("ab", quantities)), fetch=s.products.get)
+    order = checkout.confirm(s, "u1", cart["id"], BASE)
+    paypal_mock.approve(order["paypal_order_id"])
+    return checkout.handle_return("u1", order["id"])
+
+
+def recording(monkeypatch):
+    calls = []
+    real = checkout.paypal.refund_capture
+    monkeypatch.setattr(checkout.paypal, "refund_capture", lambda *a: calls.append(a) or real(*a))
+    return calls
+
+
+def test_one_line_then_the_other(monkeypatch):
+    order = paid_two_lines()
+    calls = recording(monkeypatch)
+    first = checkout.refund("u1", order["id"], [2])
+    assert first["status"] == "PARTIALLY_REFUNDED"
+    assert calls == [(order["capture_id"], f"refund-{order['id']}-2", 1000, "USD")]
+    assert "refund_id" in first["items"][1] and "refund_id" not in first["items"][0]
+    view = checkout.order_view(first)
+    assert view["refunded_cents"] == 1000 and [i["refunded"] for i in view["items"]] == [False, True]
+    second = checkout.refund("u1", order["id"], [1])
+    assert second["status"] == "REFUNDED" and calls[1][1:] == (f"refund-{order['id']}-1", 1500, "USD")
+
+
+def test_same_line_twice_is_refused_without_calling_paypal(monkeypatch):
+    order = paid_two_lines()
+    checkout.refund("u1", order["id"], [1])
+    monkeypatch.setattr(checkout.paypal, "refund_capture", fail_if_called)
+    with pytest.raises(checkout.CheckoutError, match="Line 1 of order .* already refunded"):
+        checkout.refund("u1", order["id"], [1])
+    with pytest.raises(checkout.CheckoutError, match="no line 3"):
+        checkout.refund_draft("u1", order["id"], [3])
+    with pytest.raises(checkout.CheckoutError, match="at least one line"):
+        checkout.refund_draft("u1", order["id"], [])
+
+
+def test_all_remaining_lines_make_one_call_per_line(monkeypatch):
+    order = paid_two_lines()
+    draft = checkout.refund_draft("u1", order["id"])
+    assert [(l["line"], l["amount_cents"]) for l in draft["lines"]] == [(1, 1500), (2, 1000)] and draft["amount_cents"] == 2500
+    calls = recording(monkeypatch)
+    done = checkout.refund("u1", order["id"])
+    assert done["status"] == "REFUNDED" and [c[1] for c in calls] == [f"refund-{order['id']}-1", f"refund-{order['id']}-2"]
+    # The refunded lines add up to the order amount, and the mock agrees nothing is left to refund.
+    assert sum(c[2] for c in calls) == order["amount_cents"]
+    with pytest.raises(paypal.PayPalError, match="CAPTURE_FULLY_REFUNDED"):
+        paypal.refund_capture(order["capture_id"], "refund-extra", 1, "USD")
+
+
+def test_failure_on_the_second_line_keeps_the_first_and_retry_reuses_the_request_id(monkeypatch):
+    order = paid_two_lines()
+    real = checkout.paypal.refund_capture
+    seen = []
+
+    def second_fails_once(capture_id, request_id, amount, currency):
+        seen.append(request_id)
+        if request_id.endswith("-2") and seen.count(request_id) == 1:
+            raise paypal.PayPalError("NETWORK_ERROR")
+        return real(capture_id, request_id, amount, currency)
+
+    monkeypatch.setattr(checkout.paypal, "refund_capture", second_fails_once)
+    out = checkout.refund("u1", order["id"])
+    assert out["status"] == "PARTIALLY_REFUNDED" and "Line 2 (B) was not refunded (NETWORK_ERROR)" in out["note"]
+    retry = checkout.refund("u1", order["id"])
+    assert retry["status"] == "REFUNDED" and retry["note"] == ""
+    assert seen == [f"refund-{order['id']}-1", f"refund-{order['id']}-2", f"refund-{order['id']}-2"]
+
+
+def test_simultaneous_clicks_on_a_two_line_order_make_one_call_per_line(monkeypatch):
+    import threading
+    order = paid_two_lines()
+    calls = recording(monkeypatch)
+    threads = [threading.Thread(target=lambda: _try_refund(order["id"])) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sorted(c[1] for c in calls) == [f"refund-{order['id']}-1", f"refund-{order['id']}-2"]
+    assert store.get_order(order["id"], "u1")["status"] == "REFUNDED"
+
+
+def test_mock_refuses_a_refund_larger_than_what_is_left():
+    order = paid_two_lines()
+    paypal.refund_capture(order["capture_id"], "r-a", 2000, "USD")
+    with pytest.raises(paypal.PayPalError, match="REFUND_AMOUNT_EXCEEDED"):
+        paypal.refund_capture(order["capture_id"], "r-b", 501, "USD")
+
+
+def test_refund_by_line_only_for_own_orders(monkeypatch):
+    order = paid_two_lines()
+    monkeypatch.setattr(checkout.paypal, "refund_capture", fail_if_called)
+    with pytest.raises(checkout.CheckoutError, match="not found"):
+        checkout.refund("intruder", order["id"], [1])
 
 
 def _try_refund(order_id):

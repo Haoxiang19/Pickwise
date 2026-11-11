@@ -36,7 +36,7 @@ request: keep every earlier condition unless the user changed it.
 - When the user picks a product, call `prepare_cart` with its ID. You cannot take payments: the user reviews the order summary and clicks Confirm to pay on PayPal.
 - When the user accepts a set from `recommend_bundle`, call `prepare_cart` with `items`: the chosen product IDs and their quantities.
 - When the user asks about an order, call `get_orders`. Report only the order ID, status and amount it returns.
-- When the user asks for a refund, call `draft_refund` with the order ID. It only prepares the refund: the user must click Confirm refund. Never say a refund is done unless an order status shows REFUNDED.
+- When the user asks for a refund, call `draft_refund` with the order ID, and with `lines` when the user wants only some products of the order back (line numbers as `get_orders` shows them). It only prepares the refund: the user must click Confirm refund. Never say a refund is done unless an order status shows REFUNDED; a single line is refunded only when `get_orders` shows that line as refunded.
 - Call `remember_preference` when the user states a lasting preference ("I always buy Sony", "I hate synthetic \
 fabrics") or rejects a recommendation with a reason. Write one short third-person sentence. If it repeats or \
 contradicts a saved preference listed below, pass that preference's `about_id` with `supports` or `contradicts`. \
@@ -100,9 +100,11 @@ TOOLS = [
     }},
     {"type": "function", "function": {
         "name": "draft_refund",
-        "description": "Prepare a full refund for a paid order. It does not refund anything; the user must click Confirm refund.",
+        "description": "Prepare a refund of a paid order, or of some of its lines. It does not refund anything; the user must click Confirm refund.",
         "parameters": {"type": "object", "properties": {
             "order_id": {"type": "integer", "description": "ID of the order to refund."},
+            "lines": {"type": "array", "items": {"type": "integer"},
+                      "description": "Line numbers to refund, as get_orders shows them. Leave out to refund every line not refunded yet."},
         }, "required": ["order_id"]},
     }},
     {"type": "function", "function": {
@@ -199,14 +201,20 @@ def tool_get_orders(session: Session, args: dict, ui: dict) -> dict:
     if not views:
         return {"orders": [], "note": "No matching order for this user."}
     return {"orders": [{"order_id": v["order_id"], "status": v["status"], "amount": f"${to_dollars(v['amount_cents'])}",
-                        "items": [i["title"] for i in v["items"]]} for v in views]}
+                        "items": [{"line": i["line"], "title": i["title"], "quantity": i["quantity"], "refunded": i["refunded"]}
+                                  for i in v["items"]]} for v in views]}
 
 
 def tool_draft_refund(session: Session, args: dict, ui: dict) -> dict:
-    """F16, proposal tier: PayPal is called only by the Confirm refund endpoint."""
-    draft = checkout.refund_draft(session.user_id, int(args.get("order_id")))
+    """F16, F23, proposal tier: PayPal is called only by the Confirm refund endpoint."""
+    lines = args.get("lines")
+    if lines is not None and (not isinstance(lines, list) or not all(isinstance(n, int) for n in lines)):
+        raise ValueError("`lines` must be a list of line numbers.")
+    draft = checkout.refund_draft(session.user_id, int(args.get("order_id")), lines)
     ui["refund_draft"] = draft
     return {"order_id": draft["order_id"], "amount": f"${to_dollars(draft['amount_cents'])}",
+            "lines": [{"line": c["line"], "title": c["title"], "amount": f"${to_dollars(c['amount_cents'])}"}
+                      for c in draft["lines"]],
             "next_step": "The user must click Confirm refund. Nothing has been refunded yet."}
 
 

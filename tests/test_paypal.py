@@ -67,15 +67,16 @@ def test_token_is_cached(live):
     assert live["token"] == 1
 
 
-def test_capture_and_refund_send_empty_body_and_request_id(live):
+def test_capture_sends_empty_body_and_refund_states_its_amount(live):
     live["replies"] += [Resp(201, {"id": "PP1"}), Resp(201, {"id": "R1", "status": "COMPLETED"})]
     paypal.capture_order("PP1", "capture-7")
-    paypal.refund_capture("CAP1", "refund-7")
+    paypal.refund_capture("CAP1", "refund-7-2", 1999, "USD")
     cap, ref = live["requests"]
     assert cap["url"].endswith("/v2/checkout/orders/PP1/capture") and cap["json"] == {}
     assert cap["headers"]["PayPal-Request-Id"] == "capture-7"
-    assert ref["url"].endswith("/v2/payments/captures/CAP1/refund") and ref["json"] == {}
-    assert ref["headers"]["PayPal-Request-Id"] == "refund-7"
+    assert ref["url"].endswith("/v2/payments/captures/CAP1/refund")
+    assert ref["json"] == {"amount": {"value": "19.99", "currency_code": "USD"}}  # F23: every refund states its amount
+    assert ref["headers"]["PayPal-Request-Id"] == "refund-7-2"
 
 
 def test_errors_carry_paypal_issue(live):

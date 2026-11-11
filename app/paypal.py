@@ -105,8 +105,9 @@ def capture_order(paypal_order_id: str, request_id: str) -> dict:
     return _call("POST", f"/v2/checkout/orders/{paypal_order_id}/capture", request_id, {})
 
 
-def refund_capture(capture_id: str, request_id: str) -> dict:
-    """Full refund: an empty body refunds the whole capture."""
+def refund_capture(capture_id: str, request_id: str, amount_cents: int, currency: str) -> dict:
+    """Refund part of a capture (F23: one order line). PayPal allows several partial refunds per capture."""
+    body = {"amount": {"value": to_dollars(amount_cents), "currency_code": currency}}
     if not enabled():
-        return paypal_mock.refund_capture(capture_id, request_id)
-    return _call("POST", f"/v2/payments/captures/{capture_id}/refund", request_id, {})
+        return paypal_mock.refund_capture(capture_id, request_id, body)
+    return _call("POST", f"/v2/payments/captures/{capture_id}/refund", request_id, body)

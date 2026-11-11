@@ -54,6 +54,10 @@ class ConfirmIn(BaseModel):
     cart_id: str
 
 
+class RefundIn(BaseModel):
+    lines: list[int] | None = None  # F23: line numbers; None means every line not refunded yet
+
+
 def base_url(request: Request) -> str:
     return os.getenv("APP_BASE_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
 
@@ -156,10 +160,10 @@ def get_order(order_id: int, request: Request):
 
 
 @app.post("/api/orders/{order_id}/refund")
-def refund_order(order_id: int, request: Request):
-    """F16: the Confirm refund button. The only place a refund is sent to PayPal."""
+def refund_order(order_id: int, request: Request, body: RefundIn | None = None):
+    """F16, F23: the Confirm refund button. The only place a refund is sent to PayPal. No body = all remaining lines."""
     try:
-        order = checkout.refund(request.state.user_id, order_id)
+        order = checkout.refund(request.state.user_id, order_id, body.lines if body else None)
     except checkout.CheckoutError as e:
         raise HTTPException(400, str(e))
     return checkout.order_view(order)

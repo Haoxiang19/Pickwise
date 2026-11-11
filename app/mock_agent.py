@@ -25,6 +25,7 @@ FOLLOW_UP = re.compile(r"^\s*(but|also|and|actually|only|now)\b", re.I)
 ORDER_QUESTION = re.compile(r"\b(order status|my orders?|where is my order|status of (my )?order|orders?\s*#?\s*\d+)\b", re.I)
 ORDER_ID = re.compile(r"\border\s*#?\s*(\d+)\b|#(\d+)", re.I)
 REFUND = re.compile(r"\b(refund|money back|return it)\b", re.I)
+REFUND_LINE = re.compile(r"\b(?:item|line)\s*#?\s*(\d+)\b", re.I)  # F23: "refund item 2 of order 5"
 PREFER = re.compile(r"\bi (?:always |really |usually )?(?:prefer|love|only buy|always buy)\s+([^.,!?]+)", re.I)
 DISLIKE = re.compile(r"\bi (?:no longer|don'?t|do not) (?:like|prefer|want)\s+([^.,!?]+?)(?:\s+anymore)?(?:[.,!?]|$)", re.I)
 SAVED = re.compile(r"^- \[(\d+)\] [+-][\d.]+ (.+)$", re.M)
@@ -120,7 +121,9 @@ def summarize(result: dict) -> str:
     if "saved" in result:
         return f"Noted. I will remember: {result['saved']['text']}"
     if "next_step" in result and "order_id" in result:
-        return f"I prepared a full refund of {result['amount']} for order #{result['order_id']}. Click Confirm refund to send it."
+        what = ", ".join(f"line {x['line']} ({x['title']})" for x in result["lines"])
+        return (f"I prepared a refund of {result['amount']} for order #{result['order_id']}: {what}. "
+                "Click Confirm refund to send it.")
     if "orders" in result:
         if not result["orders"]:
             return "I could not find that order."
@@ -193,10 +196,14 @@ def reply(messages: list[dict]) -> dict:
     text = last["content"]
     # Order questions first, so "I want a refund for order 1" is not read as "want the 1st product".
     if REFUND.search(text):
-        m = ORDER_ID.search(text)
+        line = REFUND_LINE.search(text)
+        m = ORDER_ID.search(REFUND_LINE.sub(" ", text))  # so "item #2" is not read as order 2
         if not m:
             return text_message("Which order should I refund? Give its number, e.g. 'refund order 2'.")
-        return tool_message("draft_refund", {"order_id": int(m.group(1) or m.group(2))})
+        args = {"order_id": int(m.group(1) or m.group(2))}
+        if line:
+            args["lines"] = [int(line.group(1))]
+        return tool_message("draft_refund", args)
 
     if ORDER_QUESTION.search(text):
         m = ORDER_ID.search(text)

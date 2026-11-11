@@ -22,6 +22,7 @@ MESSAGES = {
     "CANCELLED": "Payment cancelled. Nothing was charged.",
     "CAPTURE_FAILED": "Payment failed. Nothing was charged.",
     "AMOUNT_MISMATCH": "The PayPal amount did not match your order, so it was not captured. Nothing was charged.",
+    "PARTIALLY_REFUNDED": "Part of this order was refunded.",
     "REFUNDED": "This order was refunded.",
 }
 
@@ -32,11 +33,17 @@ class CheckoutError(Exception):
 
 def order_view(order: dict) -> dict:
     """What the page and the agent may see of an order."""
+    items = [{**item, "line": n, "refunded": "refund_id" in item} for n, item in enumerate(order["items"], start=1)]
     return {
         "order_id": order["id"], "status": order["status"], "amount_cents": order["amount_cents"],
-        "currency": order["currency"], "items": order["items"], "paypal_order_id": order["paypal_order_id"],
+        "currency": order["currency"], "items": items, "paypal_order_id": order["paypal_order_id"],
+        "refunded_cents": sum(_line_cents(i) for i in items if i["refunded"]),
         "message": " ".join(x for x in (MESSAGES[order["status"]], order["note"]) if x),
     }
+
+
+def _line_cents(item: dict) -> int:
+    return item["unit_price_cents"] * item["quantity"]
 
 
 def confirm(session: store.Session, user_id: str, cart_id: str, base_url: str) -> dict:
@@ -148,32 +155,63 @@ def handle_cancel(user_id: str, order_id: int) -> dict:
         return order
 
 
-def refund_draft(user_id: str, order_id: int) -> dict:
-    """F16, proposal only: check the order can be refunded and describe the refund. Calls nothing."""
+def refund_draft(user_id: str, order_id: int, lines: list[int] | None = None) -> dict:
+    """F16, F23, proposal only: check which lines can be refunded and describe the refund. Calls nothing.
+
+    Lines are numbered from 1 in the order's item snapshot, as the user sees them.
+    `lines=None` means every line not refunded yet.
+    """
     order = store.get_order(order_id, user_id)
     if order is None:
         raise CheckoutError("Order not found.")
     if order["status"] == "REFUNDED":
         raise CheckoutError(f"Order #{order_id} was already refunded.")
-    if order["status"] != "COMPLETED":
+    if order["status"] not in ("COMPLETED", "PARTIALLY_REFUNDED"):
         raise CheckoutError(f"Only paid orders can be refunded; order #{order_id} is {order['status']}.")
-    return {"order_id": order["id"], "amount_cents": order["amount_cents"], "currency": order["currency"],
-            "items": order["items"]}
+    items = order["items"]
+    if lines is None:
+        lines = [n for n, item in enumerate(items, start=1) if "refund_id" not in item]
+    lines = list(dict.fromkeys(lines))  # a repeated line number is one line
+    if not lines:
+        raise CheckoutError("Choose at least one line to refund.")
+    for n in lines:
+        if not isinstance(n, int) or not 1 <= n <= len(items):
+            raise CheckoutError(f"Order #{order_id} has no line {n}; its lines are 1 to {len(items)}.")
+        if "refund_id" in items[n - 1]:
+            raise CheckoutError(f"Line {n} of order #{order_id} ({items[n - 1]['title']}) was already refunded.")
+    chosen = [{"line": n, "title": items[n - 1]["title"], "quantity": items[n - 1]["quantity"],
+               "amount_cents": _line_cents(items[n - 1])} for n in lines]
+    return {"order_id": order["id"], "currency": order["currency"], "lines": chosen,
+            "amount_cents": sum(c["amount_cents"] for c in chosen)}
 
 
-def refund(user_id: str, order_id: int) -> dict:
-    """F16: the user clicked "Confirm refund". Full refund of the stored capture. Returns the updated row."""
+def refund(user_id: str, order_id: int, lines: list[int] | None = None) -> dict:
+    """F16, F23: the user clicked "Confirm refund". One PayPal refund per line, for that line's amount.
+
+    Each line is saved as soon as PayPal confirms it, so a failure part-way keeps the lines already
+    refunded, and a retry of the failed line repeats its request ID instead of refunding twice.
+    Returns the updated row.
+    """
     with LOCK:
-        refund_draft(user_id, order_id)  # same checks: own order, COMPLETED, not refunded before
+        draft = refund_draft(user_id, order_id, lines)  # same checks: own order, paid, lines not refunded before
         order = store.get_order(order_id, user_id)
-        try:
-            result = paypal.refund_capture(order["capture_id"], f"refund-{order['id']}")
-        except paypal.PayPalError as e:
-            log.warning("refund %s failed: %s", order_id, e)
-            raise CheckoutError(f"The refund did not go through ({e.issue}). The order is unchanged; you can try again.") from e
-        if result.get("status") != "COMPLETED":
-            # e.g. PENDING: not marked refunded yet; a retry with the same request ID returns the latest status.
-            store.update_order(order["id"], note=f"Refund status at PayPal: {result.get('status')}.")
-            return store.get_order(order["id"], user_id)
-        store.update_order(order["id"], status="REFUNDED", refund_id=result.get("id"), note="")
+        items = order["items"]
+        for line in draft["lines"]:
+            n = line["line"]
+            try:
+                result = paypal.refund_capture(order["capture_id"], f"refund-{order['id']}-{n}",
+                                               line["amount_cents"], order["currency"])
+            except paypal.PayPalError as e:
+                log.warning("refund %s line %s failed: %s", order_id, n, e)
+                store.update_order(order["id"], note=f"Line {n} ({line['title']}) was not refunded ({e.issue}). "
+                                                     "Lines refunded before it stay refunded; you can try again.")
+                break
+            if result.get("status") != "COMPLETED":
+                # e.g. PENDING: not counted yet; a retry with the same request ID returns the latest status.
+                store.update_order(order["id"], note=f"The refund of line {n} ({line['title']}) is "
+                                                     f"{result.get('status')} at PayPal; it is not counted as refunded yet.")
+                break
+            items[n - 1]["refund_id"] = result.get("id")
+            done = all("refund_id" in item for item in items)
+            store.update_order(order["id"], items=items, status="REFUNDED" if done else "PARTIALLY_REFUNDED", note="")
         return store.get_order(order["id"], user_id)

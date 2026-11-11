@@ -48,7 +48,7 @@ Priorities: P0 is required. P1 starts only after all of P0 works against the rea
 | F13 | Pay | Cancel and failure messages | On cancel or failure, say nothing was charged; the order is not marked as paid |
 | F14 | Pay | Success page | Shows payment success and the order ID |
 | F15 | After-sale | Order status | When asked, return order ID, status and amount |
-| F16 | After-sale | Refund | The agent drafts a refund; PayPal is called only after the user confirms; a refunded order cannot be refunded again |
+| F16 | After-sale | Refund | The agent drafts a refund; PayPal is called only after the user confirms; a refunded line cannot be refunded again (F23) |
 
 ### P1
 
@@ -67,6 +67,7 @@ Side-by-side comparison table; an LLM judge with its agreement rate against huma
 | --- | --- | --- |
 | F21 | Multi-item cart | A cart holds 1 to 6 different products, each with a quantity; the total is the sum computed by the server in integer cents; a total over the budget refuses the whole cart; one unknown, unavailable or duplicate product refuses the whole cart; the PayPal order carries one line item per product and an item total equal to the amount |
 | F22 | Set recommendation | For a request naming 2 to 6 different products under one budget, each item is searched and ranked on its own; code picks the set with the lowest rank sum among sets whose total is within the budget; if no set can fit, no model ranking is run and the user is told the price of the cheapest set |
+| F23 | Refund by line | The agent drafts a refund for chosen lines or for every line not yet refunded; PayPal is called only after the user confirms, once per line, for that line's amount; a refunded line cannot be refunded again; the order is `PARTIALLY_REFUNDED` until every line is refunded, then `REFUNDED` |
 
 ## 4. Recommendation pipeline spec
 
@@ -129,8 +130,8 @@ Payment flow details:
 
 - **Confirm**: the server creates the order row (status `CREATED`) from the cart, then creates the PayPal order. A second Confirm on the same cart returns the existing order and approval link instead of creating a new one.
 - **Return from PayPal**: `return_url` and `cancel_url` carry the local order ID. The server loads the order row by that ID, checks that it belongs to the user in the cookie, and takes the PayPal order ID from the row. It does not trust a PayPal order ID from the query string.
-- **Request IDs are deterministic**: `create-{cart_id}`, `capture-{order_id}`, `refund-{order_id}`. A retry therefore repeats the same request instead of making a new one. PayPal returns the latest status of the earlier request with that ID.
-- **Local status check comes first**: capture runs only from `CREATED`, refund only from `COMPLETED`. A page refresh on an order that is already `COMPLETED` shows the stored result and does not call PayPal. PayPal documents how long it keeps a request ID for refunds (45 days) but not for orders, so the request ID is the second guard, not the only one.
+- **Request IDs are deterministic**: `create-{cart_id}`, `capture-{order_id}`, `refund-{order_id}-{line}` (F23: one refund per order line, lines numbered from 1). A retry therefore repeats the same request instead of making a new one. PayPal returns the latest status of the earlier request with that ID.
+- **Local status check comes first**: capture runs only from `CREATED`, refund only from `COMPLETED` or `PARTIALLY_REFUNDED`. A page refresh on an order that is already `COMPLETED` shows the stored result and does not call PayPal. PayPal documents how long it keeps a request ID for refunds (45 days) but not for orders, so the request ID is the second guard, not the only one.
 - **Buttons**: Confirm and the refund confirmation are disabled after the first click. PayPal can reject two simultaneous requests that share a request ID.
 - **Time limit**: PayPal allows capture only within 3 hours of order creation. A return after that is shown as a failure with nothing charged.
 - **Capture errors** map to F13 messages, all with the order not marked as paid:
@@ -161,9 +162,9 @@ Mapping from a Channel3 search result (field names from the docs; confirm agains
 
 Offer choice: the cheapest offer that is `InStock` and priced in USD. A product with no such offer is rejected in the hard filter (F4). Channel3 has no price, URL or availability at the product level.
 
-**Order** (SQLite): `id` (local), `user_id`, `cart_id`, `paypal_order_id`, `capture_id`, `refund_id`, `amount_cents`, `currency`, `items` (JSON snapshot of product ID, title, unit price in cents, quantity), `status`, `created_at`, `updated_at`. `capture_id` comes from the capture response and is required for a refund.
+**Order** (SQLite): `id` (local), `user_id`, `cart_id`, `paypal_order_id`, `capture_id`, `refund_id`, `amount_cents`, `currency`, `items` (JSON snapshot of product ID, title, unit price in cents, quantity; each entry may carry the `refund_id` of its line, F23), `status`, `created_at`, `updated_at`. `capture_id` comes from the capture response and is required for a refund.
 
-**Order status**: `CREATED`, `COMPLETED`, `CANCELLED`, `AMOUNT_MISMATCH`, `CAPTURE_FAILED`, `REFUNDED`.
+**Order status**: `CREATED`, `COMPLETED`, `CANCELLED`, `AMOUNT_MISMATCH`, `CAPTURE_FAILED`, `PARTIALLY_REFUNDED`, `REFUNDED`.
 
 **Preference memory** (P1): `user_id`, `text` (one sentence), `strength` (-1 to 1), `evidence_count`, `updated_at`. A preference that is confirmed again gains 0.1; one that is contradicted loses 0.2.
 
@@ -190,7 +191,7 @@ Notes from the PayPal docs:
 - `PayPal-Request-Id` is required on create in this flow; without it PayPal returns `PAYPAL_REQUEST_ID_REQUIRED`.
 - The create request carries one entry per product in `purchase_units[0].items` (`name`, `quantity` as a string, `unit_amount`) and `amount.breakdown.item_total`, which must equal the sum of unit amount x quantity; with no tax or shipping it also equals `amount.value`. PayPal truncates `name` after 127 characters. Errors: `ITEM_TOTAL_MISMATCH`, `ITEM_TOTAL_REQUIRED`, `AMOUNT_MISMATCH` (F21).
 - Capture is sent with an empty JSON body `{}`. The capture ID and capture status are in `purchase_units[0].payments.captures[0]`.
-- A full refund is sent with an empty JSON body `{}`.
+- Every refund states its amount: `{"amount": {"value", "currency_code"}}` (F23). PayPal allows several partial refunds on one capture; too much returns `REFUND_AMOUNT_EXCEEDED`, a fully refunded capture `CAPTURE_FULLY_REFUNDED`.
 - The access token call uses Basic auth with the client ID and secret, and the body `grant_type=client_credentials`.
 - PayPal's official sample server captures without checking the order first. The pre-capture check in section 6 is this project's own addition.
 
@@ -220,6 +221,7 @@ Notes from the Channel3 docs:
 - That a PayPal order reads back as `APPROVED` after the buyer approves, and which values a capture status can take besides `COMPLETED`.
 - The sandbox merchant account's country is set to the US; payments use a sandbox personal test account.
 - That the sandbox accepts the create request with line items and `item_total` (F21).
+- That the sandbox accepts several refunds with an amount on one capture, including on this merchant account (`PARTIAL_REFUND_NOT_ALLOWED` exists) (F23).
 
 ## 9. Evaluation
 

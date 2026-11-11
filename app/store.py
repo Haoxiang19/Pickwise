@@ -135,7 +135,7 @@ SCHEMA = """CREATE TABLE IF NOT EXISTS orders (
     amount_cents INTEGER NOT NULL,
     currency TEXT NOT NULL,
     items TEXT NOT NULL,           -- JSON snapshot of the cart items at Confirm
-    status TEXT NOT NULL,          -- CREATED, COMPLETED, CANCELLED, AMOUNT_MISMATCH, CAPTURE_FAILED, REFUNDED
+    status TEXT NOT NULL,          -- CREATED, COMPLETED, CANCELLED, AMOUNT_MISMATCH, CAPTURE_FAILED, PARTIALLY_REFUNDED, REFUNDED
     note TEXT NOT NULL DEFAULT '', -- why a payment failed, shown to the user
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
@@ -186,11 +186,13 @@ def list_orders(user_id: str, limit: int = 5) -> list[dict]:
     return [_row(r) for r in rows]
 
 
-UPDATABLE = {"paypal_order_id", "approval_url", "capture_id", "refund_id", "status", "note"}
+# `items` is writable only so a refund (F23) can record each line's refund ID on the snapshot.
+UPDATABLE = {"paypal_order_id", "approval_url", "capture_id", "refund_id", "status", "note", "items"}
 
 
 def update_order(order_id: int, **fields) -> None:
     assert set(fields) <= UPDATABLE, fields  # column names come from code only, never from input
     sets = ", ".join(f"{k} = ?" for k in fields)
+    values = [json.dumps(v) if k == "items" else v for k, v in fields.items()]  # stored as JSON, like create_order
     with closing(_connect()) as conn, conn:
-        conn.execute(f"UPDATE orders SET {sets}, updated_at = ? WHERE id = ?", (*fields.values(), time.time(), order_id))
+        conn.execute(f"UPDATE orders SET {sets}, updated_at = ? WHERE id = ?", (*values, time.time(), order_id))

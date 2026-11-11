@@ -214,6 +214,21 @@ def test_refund_request_only_drafts(monkeypatch):
     assert store.get_order(order["id"], "u1")["status"] == "COMPLETED"
     assert "draft_refund" in {t["function"]["name"] for t in agent.TOOLS}
     assert "refund" not in agent.TOOL_FUNCTIONS
+    # F23: a line refund is also only a draft.
+    out = agent.handle_message(s, f"refund item 1 of order {order['id']}")
+    assert [l["line"] for l in out["refund_draft"]["lines"]] == [1]
+    assert store.get_order(order["id"], "u1")["status"] == "COMPLETED"
+
+
+def test_get_orders_shows_line_numbers_and_refunded_lines():
+    from app import checkout, store
+    s = store.get_session("u1")
+    order, _ = paid_order(s)
+    checkout.refund("u1", order["id"], [1])
+    result = json.loads(agent.run_tool_call(s, call("get_orders", {"order_id": order["id"]}), {}))
+    assert result["orders"][0]["items"][0]["line"] == 1 and result["orders"][0]["items"][0]["refunded"] is True
+    bad = json.loads(agent.run_tool_call(s, call("draft_refund", {"order_id": order["id"], "lines": "all"}), {}))
+    assert "error" in bad
 
 
 def test_approximate_budget_reaches_the_cart_check_too():

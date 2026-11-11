@@ -42,7 +42,7 @@ The model can never move money.
 - Before a cart is priced, the product is read back from the catalog, so the amount charged is a confirmed current price rather than a stored search result. A price that moved is shown to the user; a product that sold out or disappeared cannot be ordered.
 - The budget is checked in code (hard filter and cart), not by the prompt. The model's only say is whether the budget was phrased as a firm maximum ("under $70") or an approximate one ("around $70"); the margin that follows, 20%, is a constant in the code, and the resulting limit is the single figure used for retrieval, filtering and the cart.
 - Before capture the order is read back from PayPal: capture only if it is `APPROVED` and the amount and currency equal the confirmed order. Paid only when the capture status is `COMPLETED`.
-- No double charge: buttons disable on click, local status checks (capture only from `CREATED`, refund only from `COMPLETED`), a lock around money actions, and deterministic `PayPal-Request-Id` values (`create-{cart}`, `capture-{order}`, `refund-{order}`).
+- No double charge: buttons disable on click, local status checks (capture only from `CREATED`, refund only from a paid order and only for lines not refunded yet), a lock around money actions, and deterministic `PayPal-Request-Id` values (`create-{cart}`, `capture-{order}`, `refund-{order}-{line}`).
 - Product titles and descriptions are treated as untrusted data; the ranking prompt says so, and the eval injects hostile listings to test it.
 
 ## PayPal APIs used (sandbox, `https://api-m.sandbox.paypal.com`)
@@ -53,7 +53,7 @@ The model can never move money.
 | Create order (redirect flow, `payment_source.paypal.experience_context`, one line item per product with `item_total`) | `POST /v2/checkout/orders` |
 | Read the order back before capture | `GET /v2/checkout/orders/{id}` |
 | Capture | `POST /v2/checkout/orders/{id}/capture` |
-| Full refund | `POST /v2/payments/captures/{capture_id}/refund` |
+| Refund, one order line per call with its amount | `POST /v2/payments/captures/{capture_id}/refund` |
 
 Other services: Channel3 product search (`POST https://api.trychannel3.com/v1/search`) and any OpenAI-compatible chat completions API with function calling.
 
@@ -113,7 +113,7 @@ Start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, one worker (se
 
 - Orders are a sandbox simulation; products are not really bought from the retailers.
 - Render's free instance has no persistent disk, sleeps after 15 minutes and can restart at any time. A restart loses sessions, carts, the SQLite orders and saved preferences, so an order paid before a restart can no longer be looked up or refunded in the app. The first request after a sleep is slow.
-- Up to 6 different products per order; full refunds only; no shipping or tax.
+- Up to 6 different products per order; a refund covers whole lines (one product with all its units), not single units; no shipping or tax.
 - A set's first search knows only the total budget, so a search that returns only expensive products for one item can make a set impossible; the set treats every item as equally important.
 - No login: a random ID in an HttpOnly cookie identifies the user.
 - Product variants (size, colour) are ignored: the agent orders a product, not a specific variant.

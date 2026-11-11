@@ -78,14 +78,22 @@ def capture_order(order_id: str, request_id: str) -> dict:
     return copy.deepcopy(order)
 
 
-def refund_capture(capture_id: str, request_id: str) -> dict:
+def refund_capture(capture_id: str, request_id: str, body: dict) -> dict:
+    """A refund of `body["amount"]`; refunds of one capture add up and may not exceed what was captured."""
     if request_id in responses:
         return copy.deepcopy(responses[request_id])
-    if any(r.get("capture_id") == capture_id for r in responses.values()):
-        raise _error("CAPTURE_FULLY_REFUNDED")
-    if not any(c["id"] == capture_id for o in orders.values()
-               for c in o["purchase_units"][0].get("payments", {}).get("captures", [])):
+    capture = next((c for o in orders.values()
+                    for c in o["purchase_units"][0].get("payments", {}).get("captures", []) if c["id"] == capture_id), None)
+    if capture is None:
         raise _error("RESOURCE_NOT_FOUND")
-    refund = {"id": "MOCKREF-" + secrets.token_hex(6).upper(), "status": "COMPLETED", "capture_id": capture_id}
+    captured = to_cents(capture["amount"]["value"])
+    refunded = sum(to_cents(r["amount"]["value"]) for r in responses.values() if r.get("capture_id") == capture_id)
+    amount = to_cents(body["amount"]["value"])
+    if refunded >= captured:
+        raise _error("CAPTURE_FULLY_REFUNDED")
+    if amount > captured - refunded:
+        raise _error("REFUND_AMOUNT_EXCEEDED")
+    refund = {"id": "MOCKREF-" + secrets.token_hex(6).upper(), "status": "COMPLETED", "capture_id": capture_id,
+              "amount": dict(body["amount"])}
     responses[request_id] = refund
     return copy.deepcopy(refund)
