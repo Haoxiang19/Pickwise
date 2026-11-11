@@ -139,12 +139,20 @@ or three candidates. The candidate pool, not the ranker, is the limit on quality
 **Chosen.** Send `filters.price.max_price` on the per-query searches, and keep every budget
 guarantee in code.
 - **The model decides only the phrasing.** `recommend` gained `budget_is_strict`: false for "around
-  $100", true for "under $100", true by default. It decides whether the catalog is asked for
-  affordable products; it never decides what the budget is. `rejection()` and the cart check always
-  use the number the user gave, so a wrong call by the model costs a worse candidate pool, never an
-  unaffordable recommendation. This keeps the rule "the budget is checked in code, not by the prompt".
-  Letting the model also widen the budget for an approximate phrasing was rejected: it would put the
-  spending limit in the model's hands, and "around $100" would quietly become a number nobody chose.
+  $100", true for "under $100", true by default. The limit itself is computed by
+  `budget_from()`: a firm budget is the number the user said, an approximate one is that number plus
+  `APPROXIMATE_MARGIN` (20%), rounded up to a whole dollar. The margin is a constant in the code, so
+  the enforced limit is a fixed function of (what the user said, how they said it) and can be audited
+  line by line. Letting the model choose the margin was rejected: that would put the spending limit in
+  its hands.
+- **One limit, used everywhere.** `budget_cents` is the widened figure, and the retrieval cap, the
+  hard filter and the cart check all read it. The number the user said is kept only as
+  `budget_stated_cents`, to explain the difference ("You said about $70.00, so I included products up
+  to $84.00"). An earlier version skipped the retrieval cap for approximate budgets instead; giving
+  every budget a definite limit removed that branch.
+- **The margin only widens.** A lower bound was considered and rejected: the hard filter exists to
+  stop overspending, not to judge taste, and a floor could hide a genuinely good cheaper product. The
+  ranker already sees the raw request, so "around $100" can inform its judgement without becoming a rule.
 - **One extra unfiltered search** on the raw request keeps F6 working. With the cap on, nothing over
   budget comes back, so the "ruled out" list would be empty; this search exists only to fill it, and
   its products never become candidates. Cost: one credit per request, not double.

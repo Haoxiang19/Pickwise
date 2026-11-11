@@ -176,7 +176,6 @@ def test_cap_fills_the_candidate_pool_with_affordable_products():
     pricey = [product(f"x{i}", price=30000) for i in range(rec.SEARCH_LIMIT)]
     cheap = [product("cheap", price=4000)]
     request = rec.parse_request({"raw_request": "headphones", "budget_usd": 50, "queries": ["headphones"]})
-    assert request["budget_strict"] is True
 
     uncapped = rec.recommend(request, {"multi_query": True, "reasoning_rank": False}, capped_search(pricey + cheap))
     capped = rec.recommend(request, BUDGET_FLAGS, capped_search(pricey + cheap))
@@ -194,20 +193,31 @@ def test_cap_still_shows_what_the_budget_ruled_out():
     assert [p["id"] for p in out["candidates"]] == ["ok"]  # the over-budget one never becomes a candidate
 
 
-def test_an_approximate_budget_is_not_capped():
-    """The model says how the budget was phrased; the number itself is always enforced."""
+def test_an_approximate_budget_is_widened_by_a_fixed_margin():
+    """The model says the budget was approximate; the margin itself belongs to the code."""
+    strict = rec.parse_request({"raw_request": "under $50", "budget_usd": 50})
+    assert strict["budget_cents"] == 5000 and strict["budget_stated_cents"] == 5000
+
+    approx = rec.parse_request({"raw_request": "around $50", "budget_usd": 50, "budget_is_strict": False})
+    assert approx["budget_cents"] == 6000 and approx["budget_stated_cents"] == 5000  # +20%
+    # Rounded up to a whole dollar: $75 -> $90, $89.99 -> $107.99 -> $108.
+    assert rec.parse_request({"raw_request": "x", "budget_usd": 89.99, "budget_is_strict": False})["budget_cents"] == 10800
+    assert rec.parse_request({"raw_request": "x", "budget_is_strict": False})["budget_cents"] is None
+
+
+def test_the_widened_budget_is_the_only_limit_used():
     request = rec.parse_request({"raw_request": "around $50", "budget_usd": 50, "budget_is_strict": False,
                                  "queries": ["headphones"]})
-    assert request["budget_strict"] is False
     seen = []
 
     def search(query, limit, max_price_cents=None):
         seen.append(max_price_cents)
-        return [product("over", price=6000)]
+        return [product("ok", price=5500), product("over", price=6500)]
 
     out = rec.recommend(request, BUDGET_FLAGS, search)
-    assert seen == [None]  # no cap sent to the catalog
-    assert out["recommendations"] == [] and out["rejected"][0]["kind"] == "over_budget"  # still enforced in code
+    assert seen[0] == 6000  # the catalog is asked for products under the widened limit
+    assert [r["id"] for r in out["recommendations"]] == ["ok"]  # $55 passes, $65 does not
+    assert "You said about $50.00, so I included products up to $60.00." == out["budget_note"]
 
 
 def test_the_cap_never_decides_the_budget():

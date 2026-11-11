@@ -23,9 +23,9 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Page states the concierge-style simulation (requirements section 1); README drafted with an empty results table.
 - Channel3 compatibility pass against the docs: price field fallback, availability semantics, one retry on 429/5xx, `country` in the request.
 - Prices are refreshed from the catalog before a cart is priced (free `GET /v1/products/{id}`); a changed price is shown to the user, a vanished or sold-out product refuses the cart.
-- Retrieval asks the catalog for affordable products (`filters.price.max_price`) when the model marks the budget as firm, plus one extra unfiltered search so the ruled-out list still works. New eval row "+ budget filter"; the snapshot captures the capped results in the same pass.
+- Retrieval asks the catalog for affordable products (`filters.price.max_price`), plus one extra unfiltered search so the ruled-out list still works. An approximate budget ("around $70") is widened by 20% in code and that one figure is used everywhere. New eval row "+ budget filter"; the snapshot captures the capped results in the same pass.
 - F20 'What I remember' panel: list and delete own entries (`GET/DELETE /api/memory`). **M5 done in keyless mode.**
-- State: 167 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- State: 169 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
 - Nothing. M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode. P2 not started.
@@ -81,6 +81,7 @@ rolling out, and search results do not carry live per-variant stock.
 - Render deploy, phone-width layout, `secure` cookie behind Render's proxy.
 
 ## Questions for the owner
+- **The margin for an approximate budget is 20%** (`recommend.APPROXIMATE_MARGIN`), so "around $70" allows up to $84, rounded up to a whole dollar. Chosen by the owner on 2026-11-11; change the constant to adjust.
 - **The price cap is on by default in the app** (`DEFAULT_FLAGS["budget_filter"]`), which costs one extra search per request with a budget. Turn it off if credits get tight; the eval measures whether it is worth it.
 - **Capture with no answer from PayPal** (network error or HTTP 5xx): requirements say "anything else -> CAPTURE_FAILED". I kept the order `CREATED` with a note and a "Check again" link instead, because the capture may have succeeded at PayPal and "Nothing was charged" could be false. A retry uses the same `capture-{id}` request ID. Please confirm or tell me to switch to `CAPTURE_FAILED`.
 - **Capture status `PENDING`**: per requirements it becomes `CAPTURE_FAILED` with the message "Payment failed. Nothing was charged." For a real pending capture the money may still move. Kept as specified; the note shows the status. OK?

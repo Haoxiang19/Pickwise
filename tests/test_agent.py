@@ -214,3 +214,15 @@ def test_refund_request_only_drafts(monkeypatch):
     assert store.get_order(order["id"], "u1")["status"] == "COMPLETED"
     assert "draft_refund" in {t["function"]["name"] for t in agent.TOOLS}
     assert "refund" not in agent.TOOL_FUNCTIONS
+
+
+def test_approximate_budget_reaches_the_cart_check_too():
+    """One limit everywhere: the widened budget also decides what can be ordered."""
+    from app import store
+    s = store.get_session("u1")
+    out = agent.handle_message(s, "noise cancelling headphones around $70")
+    assert s.budget_cents == 8400  # $70 + 20%
+    assert "up to $84.00" in out["budget_note"]
+    over = max(out["recommendations"], key=lambda r: r["price_cents"])
+    assert 7000 < over["price_cents"] <= 8400  # a product the strict reading would have refused
+    assert "cart" in agent.handle_message(s, f"buy the first")

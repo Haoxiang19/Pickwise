@@ -24,7 +24,7 @@ If the user says there is no limit, call `recommend` without `budget_usd` and do
 - `queries` are 3 to 4 concrete search queries, each naming a product type a store would sell. \
 For a vague need or a gift, cover different kinds of products.
 - `must_not` holds short keywords the user wants to avoid, such as a brand or a material.
-- Set `budget_is_strict` to false when the budget is approximate ("around $100", "about $50"); leave it true for a firm maximum ("under $100", "at most $50"). It only decides how the catalog is searched; the budget you give is always applied.
+- Set `budget_is_strict` to false when the budget is approximate ("around $100", "about $50"); leave it true for a firm maximum ("under $100", "at most $50"). An approximate budget is widened by a fixed margin on the server, which tells you the limit it used.
 - When the user refines ("cheaper", "a different brand", "no plastic"), call `recommend` again with the full updated \
 request: keep every earlier condition unless the user changed it.
 - Only mention products and prices that came from a tool result. Never invent them.
@@ -95,13 +95,14 @@ def tool_recommend(session: Session, args: dict, ui: dict) -> dict:
     # Remember every searched product: only these IDs may enter a cart, at the server's price.
     session.products.update({p["id"]: p for p in result["products"]})
     session.budget_cents = request["budget_cents"]
-    ui.update(recommendations=result["recommendations"], rejected=result["rejected"], note=result["note"])
+    ui.update(recommendations=result["recommendations"], rejected=result["rejected"], note=result["note"],
+              budget_note=result["budget_note"])
     return {
         "recommendations": [{"id": r["id"], "title": r["title"], "brand": r["brand"], "price": f"${to_dollars(r['price_cents'])}",
                              "reason": r["reason"]}
                             for r in result["recommendations"]],
         "rejected_count": len(result["rejected"]),
-        "note": result["note"],
+        "note": " ".join(x for x in (result["budget_note"], result["note"]) if x),
     }
 
 

@@ -79,6 +79,7 @@ function showRecommendations(data) {
       catch (err) { add(el("div", "Error: " + err.message, "msg bot")); }
     };
   }
+  if (data.budget_note) box.appendChild(el("p", data.budget_note, "note"));
   if (data.note) box.appendChild(el("p", data.note, "note"));
   if (data.rejected && data.rejected.length) {
     const d = box.appendChild(el("details"));

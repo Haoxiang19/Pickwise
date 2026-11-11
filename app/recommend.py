@@ -1,6 +1,7 @@
 """Recommendation pipeline (requirements section 4): search, hard filter, rank, pick top 3."""
 import json
 import logging
+import math
 import random
 import re
 from collections import Counter
@@ -16,6 +17,7 @@ MAX_CANDIDATES = 20
 MAX_QUERIES = 4
 MAX_RANKED = 6
 DESCRIPTION_CHARS = 200
+APPROXIMATE_MARGIN = 0.20  # "around $100" is enforced as $120
 MISSING_RANK = MAX_RANKED + 1  # F17: a product a ranking does not list counts as rank 7
 DEFAULT_FLAGS = {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 3, "use_memory": True,
                  "budget_filter": True}
@@ -34,23 +36,36 @@ If remembered preferences are given, they are soft: the shopper's current reques
 When a remembered preference is part of why you rank a product, set "memory" to that preference's id (e.g. "m3")."""
 
 
+def budget_from(args: dict) -> tuple[int | None, int | None]:
+    """Return (the budget to enforce, the number the user said), both in cents.
+
+    The model reads the phrasing and sets `budget_is_strict`; the margin for an approximate budget
+    is this module's constant, so the limit stays a fixed function of what the user said.
+    """
+    if args.get("budget_usd") is None:
+        return None, None
+    stated = to_cents(args["budget_usd"])
+    if args.get("budget_is_strict") is not False:
+        return stated, stated
+    # Rounded up to a whole dollar, so the limit is never stricter than the margin.
+    return math.ceil(stated * (1 + APPROXIMATE_MARGIN) / 100) * 100, stated
+
+
 def parse_request(args: dict) -> dict:
     """Turn the model's tool arguments into a clean structured request. Raises ValueError if unusable."""
     raw = str(args.get("raw_request") or "").strip()
     if not raw:
         raise ValueError("raw_request is required")
-    budget = args.get("budget_usd")
+    budget_cents, stated_cents = budget_from(args)
     words = lambda key: [str(w).strip() for w in args.get(key) or [] if str(w).strip()]
     return {
         "raw_request": raw,
-        "budget_cents": to_cents(budget) if budget is not None else None,
+        "budget_cents": budget_cents,        # the one limit every later check uses
+        "budget_stated_cents": stated_cents,  # kept only to explain the difference to the user
         "must_have": words("must_have"),
         "must_not": words("must_not"),
         "preferences": words("preferences"),
         "queries": words("queries")[:MAX_QUERIES] or [raw],
-        # The model reads the phrasing ("under $100" vs "around $100"); it only decides whether the
-        # catalog is asked for affordable products, never what the budget is.
-        "budget_strict": args.get("budget_is_strict") is not False,
     }
 
 
@@ -272,9 +287,9 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
     queries = request["queries"] if flags["multi_query"] else [request["raw_request"]]
     seed = random.randrange(2**31) if seed is None else seed
     budget = request["budget_cents"]
-    # Ask the catalog for affordable products only when the user gave a firm maximum. This is a
-    # retrieval optimisation; the budget itself is still enforced by hard_filter below.
-    cap = budget if flags.get("budget_filter") and budget is not None and request.get("budget_strict", True) else None
+    # Every budget has a definite limit (an approximate one was widened in parse_request), so the
+    # catalog can always be asked for affordable products. The limit is still enforced by hard_filter.
+    cap = budget if flags.get("budget_filter") and budget is not None else None
     products = [{**p, "query_index": 0} for p in inject] + search_all(queries, search_fn, cap)
     candidates, rejected = hard_filter(products, budget, request["must_not"])
     if cap is not None:
@@ -299,6 +314,10 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
         recommendations.append({k: p[k] for k in ("id", "title", "brand", "price_cents", "url", "image")}
                                | {"reason": reason, "memory_used": used})
 
+    stated = request.get("budget_stated_cents")
+    budget_note = (f"You said about ${to_dollars(stated)}, so I included products up to ${to_dollars(budget)}."
+                   if stated is not None and stated != budget else "")
+
     note = ""
     if len(recommendations) < 3:
         counts = Counter(r["kind"].replace("_", " ") for r in rejected)
@@ -308,5 +327,6 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
     log.info("recommend %s", json.dumps({"queries": queries, "seed": seed, "shuffles": shuffles, "price_cap": cap, "memory": [m["id"] for m in memories], "candidates": [p["id"] for p in candidates],
                                          "rejected": [[r["id"], r["kind"]] for r in rejected],
                                          "ranking": [r["id"] for r in ranking], "picks": [r["id"] for r in picks]}))
-    return {"recommendations": recommendations, "rejected": rejected, "note": note, "queries": queries,
+    return {"recommendations": recommendations, "rejected": rejected, "note": note, "budget_note": budget_note,
+            "queries": queries,
             "seed": seed, "candidates": candidates, "products": products, "ranking": ranking}
