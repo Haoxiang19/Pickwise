@@ -184,3 +184,20 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_double_charge.py`: 5 threads confirming the same cart make one PayPal create call and one order; 5 threads returning from PayPal make one capture call; the same capture request ID gives the same capture in the mock; a new cart after a cancel gets a new order. Both thread tests fail when the lock is replaced by a no-op (checked by hand). Also covered: `test_second_confirm_returns_same_order_and_link`, `test_refresh_after_result_does_not_call_paypal`.
 
 **Limits / not verified.** The lock does not protect across processes or restarts. PayPal's real behaviour for repeated request IDs was not observed (no sandbox credentials).
+
+## F7 Refine from feedback (`app/agent.py`, `app/mock_agent.py`)
+
+**What it does.** After a follow-up such as "cheaper", "a different brand" or "also no Osprey", the agent recommends again under the new condition while keeping the earlier ones.
+
+**Where.** `app/agent.py`: refine rule in `SYSTEM_PROMPT`; `tool_recommend` now also gives the model each product's brand. `app/mock_agent.py`: `last_recommend_args`, `refine`, `CHEAPER`, `OTHER_BRAND`, `FOLLOW_UP`.
+
+**How it works.**
+1. Real model: the whole history (including the earlier `recommend` call and its result) is sent every turn, and the prompt says to call `recommend` again with the full updated request, keeping every earlier condition unless the user changed it. Each `recommend` call carries the complete request, so nothing depends on hidden state.
+2. The new call goes through the same pipeline: search, hard filter (new budget and exclusions enforced in code), rank, pick. `session.budget_cents` is replaced by the new request's budget, so the cart check uses it.
+3. Keyless mock: if a previous `recommend` call exists and the message says "cheaper", names "different/another/other brand", or starts with "but/also/and/actually/only/now", `refine` copies the earlier arguments and changes only what the message adds: a stated budget; or "cheaper" = 80% of the earlier budget (whole dollars), or of the highest shown price if there was no budget; "no limit" removes the budget; new `no X` words and, for "different brand", the brands just shown are added to `must_not`.
+
+**Why.** Keeping the conditions in the model's structured tool call (rather than merging them in code) lets the user also remove a condition ("Nike is fine now"); code still enforces whatever the current call says. The mock's 80% rule is only a stand-in so the keyless demo can show the behaviour.
+
+**Verified.** `tests/test_agent.py`: "cheaper" lowers the budget to $80 and keeps the JBL exclusion and queries; "different brand" excludes all shown brands and keeps the budget; "also no Osprey" adds to "no leather"; prompt contains the rule. By hand (keyless): "running shoes under $150, no Nike" then "something cheaper" gave products at or below $120 with Nike still excluded and the fewer-than-3 note.
+
+**Limits / not verified.** Whether a real model keeps earlier conditions reliably is not measured (multi-turn eval is P2). The mock only recognises the phrasings listed above.

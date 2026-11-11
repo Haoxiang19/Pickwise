@@ -130,3 +130,38 @@ def test_prepare_cart_ignores_model_price_and_rejects_unknown_id():
     assert ui["cart"]["unit_price_cents"] == s.products[pid]["price_cents"] != 1
     result = json.loads(agent.run_tool_call(s, call("prepare_cart", {"product_id": "made-up"}), {}))
     assert "Unknown product" in result["error"]
+
+
+# --- F7 refine ---
+
+def test_cheaper_keeps_earlier_conditions_and_lowers_budget():
+    s = Session()
+    first = agent.handle_message(s, "noise cancelling headphones under $100, no JBL")
+    out = agent.handle_message(s, "cheaper please")
+    assert s.budget_cents == 8000
+    assert all(r["price_cents"] <= 8000 and r["brand"] != "JBL" for r in out["recommendations"])
+    calls = [json.loads(c["function"]["arguments"]) for m in s.history for c in m.get("tool_calls") or []]
+    assert calls[-1]["must_not"] == ["jbl"] and calls[-1]["queries"] == calls[0]["queries"]
+    assert first["recommendations"] != out["recommendations"]
+
+
+def test_different_brand_excludes_shown_brands():
+    s = Session()
+    first = agent.handle_message(s, "running shoes under $150")
+    shown_brands = {r["brand"] for r in first["recommendations"]}
+    out = agent.handle_message(s, "show me a different brand")
+    assert out["recommendations"]
+    assert not shown_brands & {r["brand"] for r in out["recommendations"]}
+    assert s.budget_cents == 15000  # earlier budget kept
+
+
+def test_follow_up_exclusion_is_added_to_earlier_ones():
+    s = Session()
+    agent.handle_message(s, "a backpack under $130, no leather")
+    agent.handle_message(s, "also no Osprey")
+    args = [json.loads(c["function"]["arguments"]) for m in s.history for c in m.get("tool_calls") or []][-1]
+    assert args["must_not"] == ["leather", "osprey"] and args["budget_usd"] == 130
+
+
+def test_refine_rule_is_in_system_prompt():
+    assert "keep every earlier condition" in agent.SYSTEM_PROMPT

@@ -18,6 +18,9 @@ EXCLUDE = re.compile(r"\b(?:no|not|without|avoid)\s+([a-z0-9][\w-]*)", re.I)
 NOT_KEYWORDS = {"budget", "limit", "price", "more", "too", "than", "idea"}
 PICK = re.compile(r"\b(?:buy|take|choose|pick|get|want)\b.*?\b(first|1st|second|2nd|third|3rd|1|2|3)\b", re.I)
 ORDINALS = {"first": 0, "1st": 0, "1": 0, "second": 1, "2nd": 1, "2": 1, "third": 2, "3rd": 2, "3": 2}
+CHEAPER = re.compile(r"\b(cheaper|less expensive|lower price)\b", re.I)
+OTHER_BRAND = re.compile(r"\b(different|another|other) brands?\b", re.I)
+FOLLOW_UP = re.compile(r"^\s*(but|also|and|actually|only|now)\b", re.I)
 
 
 def text_message(content: str) -> dict:
@@ -77,6 +80,34 @@ def last_recommendations(messages: list[dict]) -> list[dict]:
     return []
 
 
+def last_recommend_args(messages: list[dict]) -> dict | None:
+    """Arguments of the latest recommend call, i.e. the conditions in force so far."""
+    for m in reversed(messages):
+        for call in m.get("tool_calls") or []:
+            if call["function"]["name"] == "recommend":
+                return json.loads(call["function"]["arguments"])
+    return None
+
+
+def refine(previous: dict, text: str, shown: list[dict]) -> dict:
+    """F7: apply a follow-up condition on top of the earlier request, keeping the rest."""
+    args = {**previous, "raw_request": f"{previous['raw_request']}; {text}"}
+    budget, no_limit = parse_budget(text)
+    if CHEAPER.search(text) and budget is None:
+        prices = [float(r["price"].lstrip("$")) for r in shown]
+        base = previous.get("budget_usd") or max(prices, default=0)
+        budget = int(base * 0.8)  # "cheaper" read as 20% under the earlier budget
+    if budget is not None:
+        args["budget_usd"] = budget
+    if no_limit:
+        args.pop("budget_usd", None)
+    excluded = [w.lower() for w in EXCLUDE.findall(text) if w.lower() not in NOT_KEYWORDS]
+    if OTHER_BRAND.search(text):
+        excluded += [r["brand"].lower() for r in shown if r.get("brand")]
+    args["must_not"] = list(dict.fromkeys(previous.get("must_not", []) + excluded))
+    return args
+
+
 def reply(messages: list[dict]) -> dict:
     last = messages[-1]
     if last["role"] == "tool":
@@ -87,6 +118,10 @@ def reply(messages: list[dict]) -> dict:
     pick = PICK.search(text)
     if pick and ORDINALS[pick.group(1).lower()] < len(shown):
         return tool_message("prepare_cart", {"product_id": shown[ORDINALS[pick.group(1).lower()]]["id"], "quantity": 1})
+
+    earlier = last_recommend_args(messages)
+    if earlier and (CHEAPER.search(text) or OTHER_BRAND.search(text) or FOLLOW_UP.search(text)):
+        return tool_message("recommend", refine(earlier, text, shown))
 
     previous = [m for m in messages[:-1] if m["role"] in ("user", "assistant")]
     # If the last thing we said was the budget question, this message answers it: join it to the request.
