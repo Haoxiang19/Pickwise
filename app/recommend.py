@@ -1,4 +1,5 @@
 """Recommendation pipeline (requirements section 4): search, hard filter, rank, pick top 3."""
+import itertools
 import json
 import logging
 import math
@@ -9,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app import catalog, llm
 from app.money import to_cents, to_dollars
+from app.store import MAX_CART_LINES, MAX_QUANTITY
 
 log = logging.getLogger(__name__)
 
@@ -21,6 +23,9 @@ APPROXIMATE_MARGIN = 0.20  # "around $100" is enforced as $120
 MISSING_RANK = MAX_RANKED + 1  # F17: a product a ranking does not list counts as rank 7
 DEFAULT_FLAGS = {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 3, "use_memory": True,
                  "budget_filter": True}
+MAX_BUNDLE_ITEMS = MAX_CART_LINES  # F22: a set must fit in one cart; also keeps enumeration at 6^6 sets
+BUNDLE_QUERIES = 2                 # search queries per item of a set
+BUNDLE_SEED_STEP = 10              # item i ranks with seeds seed + 10*i + k, so items never share a shuffle
 MEMORY_STOPWORDS = {"prefers", "likes", "loves", "the", "brand", "a", "an", "of", "for", "and", "always", "buys"}
 
 RANK_PROMPT = """You rank products for a shopper.
@@ -330,3 +335,165 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
     return {"recommendations": recommendations, "rejected": rejected, "note": note, "budget_note": budget_note,
             "queries": queries,
             "seed": seed, "candidates": candidates, "products": products, "ranking": ranking}
+
+
+# --- F22 Set recommendation: several different products under one total budget ---
+
+def parse_bundle(args: dict) -> dict:
+    """Turn the model's recommend_bundle arguments into a clean request.
+
+    Raises ValueError with a message that tells the model what to do instead.
+    """
+    raw = str(args.get("raw_request") or "").strip()
+    if not raw:
+        raise ValueError("raw_request is required")
+    items = args.get("items") if isinstance(args.get("items"), list) else []
+    if len(items) < 2:
+        raise ValueError("recommend_bundle needs 2 to 6 different products. For one product, call recommend instead.")
+    if len(items) > MAX_BUNDLE_ITEMS:
+        raise ValueError(f"At most {MAX_BUNDLE_ITEMS} products fit in one set. "
+                         "Ask the user to split the request into smaller sets.")
+    words = lambda values: [str(w).strip() for w in values or [] if str(w).strip()]
+    parsed = []
+    for item in items:
+        name = str(item.get("name") or "").strip() if isinstance(item, dict) else ""
+        if not name:
+            raise ValueError("Every item needs a name.")
+        quantity = 1 if item.get("quantity") is None else item["quantity"]
+        if not isinstance(quantity, int) or not 1 <= quantity <= MAX_QUANTITY:
+            raise ValueError(f"The quantity of {name} must be a whole number from 1 to {MAX_QUANTITY}.")
+        parsed.append({"name": name, "queries": words(item.get("queries"))[:BUNDLE_QUERIES] or [name],
+                       "quantity": quantity, "must_have": words(item.get("must_have"))})
+    budget_cents, stated_cents = budget_from(args)  # the same widening as a single request
+    return {"raw_request": raw, "budget_cents": budget_cents, "budget_stated_cents": stated_cents,
+            "must_not": words(args.get("must_not")), "preferences": words(args.get("preferences")), "items": parsed}
+
+
+def best_combo(options: list[list[int]], budget_cents: int | None) -> tuple[int, ...] | None:
+    """Pick one option per item. `options[i]` holds the costs in cents of item i's options, best rank first.
+
+    Among the sets within the budget, return the indexes of the one with the lowest sum of rank
+    positions, then the lowest total. None if no set fits. The budget is a limit, not a target.
+    At most 6 items x 6 options = 46,656 sets, so trying every one is fast and easy to check
+    (see docs/decisions.md for why this is not a knapsack DP).
+    """
+    best, best_key = None, None
+    for combo in itertools.product(*(range(len(costs)) for costs in options)):
+        total = sum(options[i][k] for i, k in enumerate(combo))
+        if budget_cents is not None and total > budget_cents:
+            continue
+        key = (sum(combo), total)
+        if best_key is None or key < best_key:
+            best, best_key = combo, key
+    return best
+
+
+def _bundle_view(p: dict, r: dict, queries: list[str], memory_text: dict) -> dict:
+    """One product as the page shows it, with the reason written the same way as in recommend()."""
+    reason = r["reason"] or f'One of the top results for "{queries[p["query_index"]]}".'
+    used = memory_text.get(r.get("memory"))
+    if used:
+        reason += f' Based on what I remember: "{used}".'
+    return {k: p[k] for k in ("id", "title", "brand", "price_cents", "url", "image")} | {"reason": reason, "memory_used": used}
+
+
+def recommend_bundle(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.search, seed: int | None = None) -> dict:
+    """F22: search and rank each item on its own, then code picks the best set within the total budget.
+
+    The model ranks; it never splits the budget or chooses the set. Steps follow
+    docs/multi-item-plan.md section 8.
+    """
+    seed = random.randrange(2**31) if seed is None else seed
+    budget, items = request["budget_cents"], request["items"]
+    cap = budget if flags.get("budget_filter") and budget is not None else None
+    memories = list(request.get("memory") or []) if flags.get("use_memory") else []
+    item_queries = [item["queries"] if flags["multi_query"] else [item["name"]] for item in items]
+    seeds = [seed + BUNDLE_SEED_STEP * i for i in range(len(items))]
+    trace = {"queries": item_queries, "seeds": seeds, "price_cap": cap}
+    products, rejected = [], []
+
+    def finish(chosen_items: list, total: int | None, note: str) -> dict:
+        trace["picked"] = [it["chosen"]["id"] for it in chosen_items]
+        log.info("recommend_bundle %s", json.dumps(trace))
+        stated = request.get("budget_stated_cents")
+        budget_note = (f"You said about ${to_dollars(stated)}, so I included sets up to ${to_dollars(budget)}."
+                       if stated is not None and stated != budget else "")
+        return {"items": chosen_items, "total_cents": total, "budget_cents": budget, "budget_note": budget_note,
+                "note": note, "rejected": rejected, "products": products}
+
+    # 1-2. Search each item, then filter against the total budget. A product found for several items
+    # belongs to the first one, so one set can never hold the same product twice (a cart refuses that).
+    seen, candidates = set(), []
+    for item, queries in zip(items, item_queries):
+        found = [p for p in search_all(queries, search_fn, cap) if p["id"] not in seen]
+        seen.update(p["id"] for p in found)
+        products.extend(found)
+        passed, out = hard_filter(found, budget, request["must_not"])
+        candidates.append(passed)
+        rejected.extend(r | {"item": item["name"]} for r in out)
+    trace["candidates"] = [[p["id"] for p in c] for c in candidates]
+    empty = [item["name"] for item, c in zip(items, candidates) if not c]
+    if empty:
+        return finish([], None, f"Nothing passed the filters for: {', '.join(empty)}. No set can be built; "
+                                "try a different description or a higher budget.")
+
+    caps = [None] * len(items)
+    if budget is not None:
+        # 3. Feasibility: if even the cheapest product of every item is too much, ranking is pointless.
+        floors = [min(p["price_cents"] for p in c) * item["quantity"] for item, c in zip(items, candidates)]
+        if sum(floors) > budget:
+            return finish([], None, f"The cheapest set costs ${to_dollars(sum(floors))}, "
+                                    f"over your budget of ${to_dollars(budget)}.")
+        # 4. Per-item limit: what is left after the cheapest choice for every other item.
+        for i, item in enumerate(items):
+            caps[i] = (budget - (sum(floors) - floors[i])) // item["quantity"]
+            candidates[i], out = hard_filter(candidates[i], caps[i], request["must_not"])
+            reason = f"would leave too little for the other items (at most ${to_dollars(caps[i])} for this item)"
+            rejected.extend(r | {"item": item["name"], "kind": "item_limit", "reason": reason} for r in out)
+    trace["caps"] = caps
+
+    # 5. Rank every item in parallel, each as its own request with its own limit and seeds.
+    def rank_item(i: int) -> list[dict]:
+        item = items[i]
+        if not flags["reasoning_rank"]:
+            return [{"id": p["id"], "reason": None, "memory": None} for p in candidates[i][:MAX_RANKED]]
+        item_request = {"raw_request": f"{item['name']}, one of {len(items)} items bought together for: "
+                                       f"{request['raw_request']}",
+                        "budget_cents": caps[i], "must_have": item["must_have"],
+                        "must_not": request["must_not"], "preferences": request["preferences"]}
+        return rank_shuffled(item_request, candidates[i], seeds[i], flags.get("rank_shuffles", 1), memories)
+
+    with ThreadPoolExecutor(max_workers=len(items)) as pool:  # the calls wait on the network, so threads suffice
+        rankings = list(pool.map(rank_item, range(len(items))))
+    trace["rankings"] = [[r["id"] for r in ranking] for ranking in rankings]
+
+    # 6. Guarantee: each item's cheapest candidate is an option, so the all-cheapest set (which
+    # step 3 showed fits) is always available and step 7 cannot fail.
+    options = []
+    for i, ranking in enumerate(rankings):
+        opts = ranking[:MAX_RANKED]
+        if budget is not None:
+            cheapest = min(candidates[i], key=lambda p: p["price_cents"])
+            if cheapest["id"] not in {r["id"] for r in opts}:
+                opts = opts[:MAX_RANKED - 1] + [{"id": cheapest["id"], "reason": None, "memory": None}]
+        options.append(opts)
+
+    # 7. Code picks the set. Prices are the server's, times each item's quantity.
+    by_id = {p["id"]: p for c in candidates for p in c}
+    costs = [[by_id[r["id"]]["price_cents"] * item["quantity"] for r in opts] for item, opts in zip(items, options)]
+    combo = best_combo(costs, budget)
+    if combo is None:  # unreachable after step 6; kept so a future change cannot quote a set over budget
+        return finish([], None, "No set fits the budget.")
+
+    # 8. Reasons, with a sentence added in code when the budget pushed an item below its rank 1.
+    memory_text = {f"m{m['id']}": m["text"] for m in memories}
+    chosen_items = []
+    for i, (item, opts) in enumerate(zip(items, options)):
+        views = [_bundle_view(by_id[r["id"]], r, item_queries[i], memory_text) for r in opts]
+        k = combo[i]
+        if k > 0:
+            views[k]["reason"] += f" Chosen over higher-ranked options to keep the set within ${to_dollars(budget)}."
+        chosen_items.append({"name": item["name"], "quantity": item["quantity"], "chosen": views[k],
+                             "alternatives": views[:k] + views[k + 1:]})
+    # 9. One log line per run (inside finish).
+    return finish(chosen_items, sum(costs[i][k] for i, k in enumerate(combo)), "")

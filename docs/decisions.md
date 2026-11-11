@@ -223,6 +223,12 @@ No code was copied.
   30,000 columns per item and needs extra bookkeeping to break ties by total cost; it is longer and
   harder to explain line by line, for no gain at this size. The ceiling of 6 is what keeps
   enumeration safe, which is why it is enforced in code.
+- **A product found for several items belongs to the first item** (owner's choice, 2026-11-11, while
+  building commit 3). The work order did not cover it: `best_combo` sees only costs, so it could pick
+  the same product for two items, and the cart refuses a repeated product. This mirrors the existing
+  rule that a product found by several queries belongs to the first query. The alternative, passing
+  product IDs into `best_combo` to skip such sets, was rejected as longer and a change to the planned
+  signature. Cost: a loose query for an early item can take a product that fits a later item better.
 
 **Known risk, not a conflict.** Some merchant accounts refuse partial refunds
 (`PARTIAL_REFUND_NOT_ALLOWED`). On such an account the second line of a multi-line order could not be
