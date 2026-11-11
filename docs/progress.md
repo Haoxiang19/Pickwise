@@ -20,8 +20,9 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - F17 multi-shuffle ranking (3 shuffles in parallel, mean rank, unlisted = 7); eval row "+ multi-shuffle".
 - F18 preference memory write (`app/memory.py`, `remember_preference` tool, purchase writes "Likes the brand X").
 - F19 memory use: profile (top 3 positive) fixed per conversation, ranker-only soft preference, reason names the memory; New conversation button; eval adds 4 preference requests and the "+ memory" version.
+- Page states the concierge-style simulation (requirements section 1); README drafted with an empty results table.
 - F20 'What I remember' panel: list and delete own entries (`GET/DELETE /api/memory`). **M5 done in keyless mode.**
-- State: 134 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- State: 135 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
 - Nothing. M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode. P2 not started.
@@ -33,7 +34,7 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 4. One real sandbox payment with a sandbox personal account (M2 done-criterion). Check: `payer-action` link, read-back status `APPROVED`, capture status, refund status.
 5. Impeccable design (`/impeccable init`, `craft`, `audit`), then deploy to Render with `APP_BASE_URL` set to the public URL.
 6. Real eval: `python -m eval.run_eval --name full` (with both model and Channel3 keys it creates `eval/snapshot.json` once), label `runs/full/to_label.json` into `eval/labels.json`, run again for NDCG@3. The table now has 5 versions (incl. + multi-shuffle and + memory) and a memory-adherence column.
-7. Still missing for submission: README (PayPal endpoints, concierge-style simulation note, eval table, known limits), AI-tools description, video. The page also does not yet show the concierge-simulation note required in requirements section 1.
+7. README is drafted: fill the Results table only from a real run, and rewrite the "AI tools used" draft section in your own words. Still missing for submission: the video, the public GitHub repo (nothing pushed), and the Devpost entry.
 
 ## Not verified (needs real services)
 - No real model call made yet: function calling on DeepSeek, model ID, `usage` field names, ranking JSON quality, whether it saves/uses preferences sensibly, cost of 3 parallel ranking calls.
