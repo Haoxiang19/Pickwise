@@ -162,7 +162,7 @@ Mapping from a Channel3 search result (field names from the docs; confirm agains
 
 Offer choice: the cheapest offer that is `InStock` and priced in USD. A product with no such offer is rejected in the hard filter (F4). Channel3 has no price, URL or availability at the product level.
 
-**Order** (SQLite): `id` (local), `user_id`, `cart_id`, `paypal_order_id`, `capture_id`, `refund_id`, `amount_cents`, `currency`, `items` (JSON snapshot of product ID, title, unit price in cents, quantity; each entry may carry the `refund_id` of its line, F23), `status`, `created_at`, `updated_at`. `capture_id` comes from the capture response and is required for a refund.
+**Order** (SQLite): `id` (local), `user_id`, `cart_id`, `paypal_order_id`, `capture_id`, `refund_id`, `amount_cents`, `currency`, `items` (JSON snapshot of product ID, title, brand, category, unit price in cents, quantity; each entry may carry the `refund_id` of its line, F23), `status`, `created_at`, `updated_at`. `capture_id` comes from the capture response and is required for a refund.
 
 **Order status**: `CREATED`, `COMPLETED`, `CANCELLED`, `AMOUNT_MISMATCH`, `CAPTURE_FAILED`, `PARTIALLY_REFUNDED`, `REFUNDED`.
 

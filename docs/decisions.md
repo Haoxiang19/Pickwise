@@ -257,3 +257,35 @@ longer wait for each other.
 - Cost: one small `Lock` object per order kept in memory until the process restarts.
 
 No code was copied.
+
+## F18 How much a purchase counts as a preference
+
+**The problem** (architecture review, 2026-11-11). A completed purchase wrote "Likes the brand X" at
++0.5 for every product, the same strength as a preference the user stated. A set purchase (F22)
+therefore wrote up to 6 such entries at once and could fill the 3-entry profile the ranker sees,
+so camping brands would steer a later headphone search.
+
+**Looked at (2026-11-11)**
+- Hu, Koren and Volinsky, "Collaborative Filtering for Implicit Feedback Datasets" (ICDM 2008), as
+  implemented by `implicit` (https://github.com/benfred/implicit, MIT): implicit signals such as
+  purchases are treated as preferences held with a confidence weight, not as explicit ratings; the
+  library takes "a sparse matrix of user/item/confidence weights" and leaves the weighting to the caller.
+- mem0 (https://github.com/mem0ai/mem0, Apache-2.0, add operation docs
+  https://docs.mem0.ai/core-concepts/memory-operations/add): memories are scoped by user and can carry
+  metadata such as `{"category": ...}`; facts inferred by the model and facts added directly are
+  distinguished (`infer`).
+- MARS (already recorded under F18-F20): the +0.1 / -0.2 update steps, unchanged here.
+
+**Chosen.**
+- A purchase starts at +0.2 (`PURCHASE_STRENGTH`), a stated preference at +0.5: the implicit signal
+  counts less than the user's words. Repeat purchases still confirm it by +0.1, so a brand the user
+  keeps buying rises.
+- The category goes into the sentence ("Likes the brand Coleman for tents") rather than a new column:
+  the ranker and the "What I remember" panel both read the text, so no schema or prompt-format change
+  was needed. Rejected: a category column as in mem0's metadata, which would need a migration and a
+  rule for how the ranker uses it.
+- Stated preferences keep the user's own scope; code does not narrow or widen them.
+- A refund writes nothing. A return may be about size, a gift or a change of mind, not the brand; the
+  requirements also keep one-purchase conditions out of long-term memory.
+
+No code was copied.

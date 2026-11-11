@@ -70,6 +70,7 @@ def _cart_item(session: Session, product_id: str, quantity, fetch) -> dict:
     if not isinstance(quantity, int) or not 1 <= quantity <= MAX_QUANTITY:
         raise CartError(f"Quantity must be between 1 and {MAX_QUANTITY}.")
     item = {"product_id": product_id, "title": product["title"], "brand": product.get("brand", ""),
+            "category": product.get("category", ""),  # scopes the brand preference a purchase writes (F18)
             "unit_price_cents": product["price_cents"], "quantity": quantity}
     if isinstance(cached["price_cents"], int) and cached["price_cents"] != product["price_cents"]:
         item["price_was_cents"] = cached["price_cents"]  # the page and the agent tell the user it moved

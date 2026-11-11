@@ -54,7 +54,22 @@ def test_completed_purchase_supports_brand_preference():
         paypal_mock.approve(order["paypal_order_id"])
         checkout.handle_return("buyer", order["id"])
     [pref] = memory.list_preferences("buyer")
-    assert pref["text"] == "Likes the brand Gaiam" and pref["strength"] == 0.6 and pref["evidence_count"] == 2
+    # No category on this product, so no scope; a purchase starts weaker than a stated preference.
+    assert pref["text"] == "Likes the brand Gaiam" and pref["strength"] == 0.3 and pref["evidence_count"] == 2
+
+
+def test_set_purchase_writes_scoped_weak_preferences_below_stated_ones():
+    memory.remember("buyer", "Prefers Sony")  # stated by the user: 0.5
+    memory.record_purchase("buyer", [
+        {"brand": "Coleman", "category": "Tents"}, {"brand": "Teton", "category": "Sleeping Bags"},
+        {"brand": "Coleman", "category": "Tents"}, {"brand": "Goal Zero", "category": "Lanterns"}])
+    prefs = memory.list_preferences("buyer")
+    assert [(p["text"], p["strength"]) for p in prefs] == [
+        ("Prefers Sony", 0.5), ("Likes the brand Coleman for tents", 0.2),
+        ("Likes the brand Teton for sleeping bags", 0.2), ("Likes the brand Goal Zero for lanterns", 0.2)]
+    assert memory.profile("buyer")[0]["text"] == "Prefers Sony"  # what the user said comes first
+    memory.record_purchase("buyer", [{"brand": "Coleman", "category": "Lanterns"}])  # same brand, other category
+    assert len(memory.list_preferences("buyer")) == 5
 
 
 def test_failed_payment_writes_no_memory():

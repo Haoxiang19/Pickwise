@@ -31,7 +31,8 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - F22 in the app (commit 4): `recommend_bundle` agent tool, keyless mock reads "a tent, a sleeping bag and a lantern under $500" as a set and "buy the set" as a cart, 5 products added to the mock catalog for the demo, page shows one group per item with radio buttons and a "Review this set" button. Clicked through in the browser in keyless mode: $500 / $180 / $100 sets, swap and review, Confirm, mock approve, status, full refund; single-product purchase still works.
 - F23 refund by line (commit 5): `draft_refund` / the refund endpoint take line numbers; one PayPal refund per line with its amount and request ID `refund-{order}-{line}`; `PARTIALLY_REFUNDED` until every line is refunded. A failed line now returns the order with a note (HTTP 200) instead of HTTP 400. Clicked through in keyless mode: set bought, line 2 refunded, then the rest; single-product refund still works.
 - Architecture review (2026-11-11): money steps now take one lock per order instead of one global lock, so a slow PayPal call no longer blocks other users. A PayPal 4xx whose body is not JSON is now reported as `HTTP_4xx` (a refusal) instead of `NETWORK_ERROR` (unknown outcome).
-- State: 223 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- Purchase-written brand preferences start at 0.2 (stated ones at 0.5) and name the category ("Likes the brand Coleman for tents"), so a set purchase no longer fills the memory profile.
+- State: 224 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
 - M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode.
@@ -100,7 +101,7 @@ rolling out, and search results do not carry live per-variant stock.
 - **Eval run logs** (`eval/runs/`) are git-ignored. Commit the real run's logs as evidence for the README numbers?
 - **Order table extras**: added `approval_url` (so a second Confirm returns the same link without calling PayPal) and `note` (the reason shown for a failure). Not in the data section of requirements.
 - **New modules not in the suggested layout**: `app/checkout.py` (money flow: confirm, return, cancel, refund, so `main.py` stays thin and the flow is unit-testable), `app/money.py` (cents helpers), `app/paypal_mock.py` and `app/mock_agent.py` (keyless stand-ins kept out of the real code paths).
-- **New preference starting strength is 0.5** (requirements fix only +0.1 / -0.2). A new 'contradicts' without an ID starts at -0.5. OK?
+- **New preference starting strength is 0.5** (requirements fix only +0.1 / -0.2). A new 'contradicts' without an ID starts at -0.5. A preference inferred from a purchase starts at 0.2 and is scoped to the product's category (owner approved, 2026-11-11).
 - **Preference adherence = top recommendation contains the keyword** (title or brand). Requirements do not define 'respects'; top-1 is the strict choice. OK?
 - **App default for `rank_shuffles` is 3** (so the app uses F17 by default, 3x ranking cost). Set to 1 for cheaper demos?
 - **Budget question is a prompt rule only** (F2). Code does not stop the model from searching without a budget; ask accuracy in the eval measures it. Add a code guard?

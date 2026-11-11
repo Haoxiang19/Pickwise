@@ -11,6 +11,7 @@ from contextlib import closing
 from app import store
 
 NEW_STRENGTH = 0.5      # our choice; the requirements only fix the update steps
+PURCHASE_STRENGTH = 0.2  # a purchase is weaker evidence than words the user said (implicit vs explicit feedback)
 CONFIRM_STEP = 0.1      # confirmed again: +0.1 (requirements section 7)
 CONTRADICT_STEP = -0.2  # contradicted: -0.2
 MAX_TEXT = 200
@@ -55,11 +56,12 @@ def _adjust(pref: dict, step: float) -> dict:
     return _get(pref["user_id"], pref["id"])
 
 
-def remember(user_id: str, text: str, about_id: int | None = None, stance: str = "supports") -> dict:
+def remember(user_id: str, text: str, about_id: int | None = None, stance: str = "supports",
+             start: float = NEW_STRENGTH) -> dict:
     """F18: add a preference, or confirm / contradict an existing one. Returns the stored row.
 
     With `about_id`, that preference of this user is updated. Without it, a preference with the
-    same text (ignoring case) is confirmed; otherwise a new one is added.
+    same text (ignoring case) is confirmed; otherwise a new one is added with strength `start`.
     """
     if stance not in ("supports", "contradicts"):
         raise ValueError("stance must be 'supports' or 'contradicts'")
@@ -75,7 +77,7 @@ def remember(user_id: str, text: str, about_id: int | None = None, stance: str =
     same = next((p for p in list_preferences(user_id) if p["text"].lower() == text.lower()), None)
     if same:
         return _adjust(same, step)
-    strength = NEW_STRENGTH if stance == "supports" else -NEW_STRENGTH
+    strength = start if stance == "supports" else -start
     with closing(_connect()) as conn, conn:
         cur = conn.execute("INSERT INTO preferences (user_id, text, strength, evidence_count, updated_at) VALUES (?, ?, ?, 1, ?)",
                            (user_id, text, strength, time.time()))
@@ -83,9 +85,16 @@ def remember(user_id: str, text: str, about_id: int | None = None, stance: str =
 
 
 def record_purchase(user_id: str, items: list[dict]) -> None:
-    """F18: a completed purchase supports a brand preference (exact text, so repeats are confirmations)."""
-    for brand in dict.fromkeys(i.get("brand") for i in items if i.get("brand")):
-        remember(user_id, f"Likes the brand {brand}")
+    """F18: a completed purchase supports a brand preference, scoped to the product's category.
+
+    Weaker than a stated preference (PURCHASE_STRENGTH), so one set purchase cannot outrank what the
+    user said. The category keeps "Coleman" from steering a later headphone search. The text is exact,
+    so buying the same brand in the same category again is a confirmation (+0.1).
+    A refund writes nothing: a return is not evidence that the user dislikes the brand.
+    """
+    for brand, category in dict.fromkeys((i.get("brand"), (i.get("category") or "").lower()) for i in items if i.get("brand")):
+        text = f"Likes the brand {brand} for {category}" if category else f"Likes the brand {brand}"
+        remember(user_id, text, start=PURCHASE_STRENGTH)
 
 
 def prompt_block(user_id: str) -> str:
