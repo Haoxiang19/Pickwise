@@ -235,3 +235,25 @@ No code was copied.
 refunded. Only a real sandbox refund will show whether this applies; it is listed under "Not verified".
 
 No code was copied.
+
+## F12 One lock per order instead of one for the app
+
+**The problem** (found in the architecture review, 2026-11-11). `checkout.LOCK` was one lock for
+the whole app, held while PayPal answered (30-second timeout per call; a refund makes one call per
+line). One slow PayPal call stalled every other user's Confirm, return and refund.
+
+**Looked at.** Nothing external: this is a standard per-key lock (a dict of `threading.Lock` keyed
+by order, with a small lock guarding the dict), and the double-charge design it protects was
+already recorded under F9-F14. No credible source was needed to choose between the two options below.
+
+**Chosen.** One lock per order, keyed by cart ID, since Confirm runs before the order row exists and
+`cart_id` is `UNIQUE` on orders. Every step that checks an order's status and then calls PayPal takes
+that order's lock, so double clicks on the same order are still serialized; different orders no
+longer wait for each other.
+- Rejected: releasing the global lock around the PayPal call. Then two clicks could both pass the
+  status check before either writes the result, and the request ID would be the only guard.
+- Rejected: a database-level guard (a status column claimed with a conditional UPDATE). Correct even
+  with several workers, but longer and not needed for the single worker this app runs as.
+- Cost: one small `Lock` object per order kept in memory until the process restarts.
+
+No code was copied.

@@ -42,7 +42,7 @@ The model can never move money.
 - Before a cart is priced, the product is read back from the catalog, so the amount charged is a confirmed current price rather than a stored search result. A price that moved is shown to the user; a product that sold out or disappeared cannot be ordered.
 - The budget is checked in code (hard filter and cart), not by the prompt. The model's only say is whether the budget was phrased as a firm maximum ("under $70") or an approximate one ("around $70"); the margin that follows, 20%, is a constant in the code, and the resulting limit is the single figure used for retrieval, filtering and the cart.
 - Before capture the order is read back from PayPal: capture only if it is `APPROVED` and the amount and currency equal the confirmed order. Paid only when the capture status is `COMPLETED`.
-- No double charge: buttons disable on click, local status checks (capture only from `CREATED`, refund only from a paid order and only for lines not refunded yet), a lock around money actions, and deterministic `PayPal-Request-Id` values (`create-{cart}`, `capture-{order}`, `refund-{order}-{line}`).
+- No double charge: buttons disable on click, local status checks (capture only from `CREATED`, refund only from a paid order and only for lines not refunded yet), a lock per order around its money steps, and deterministic `PayPal-Request-Id` values (`create-{cart}`, `capture-{order}`, `refund-{order}-{line}`).
 - Product titles and descriptions are treated as untrusted data; the ranking prompt says so, and the eval injects hostile listings to test it.
 
 ## PayPal APIs used (sandbox, `https://api-m.sandbox.paypal.com`)

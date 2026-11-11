@@ -11,9 +11,13 @@ from app.money import to_cents
 
 log = logging.getLogger(__name__)
 
-# One worker process (requirements section 10), so one lock is enough to stop a double click
-# from passing the status check twice. PayPal-Request-Id is the second guard.
-LOCK = threading.Lock()
+# One worker process (requirements section 10), so in-process locks are enough to stop a double
+# click from passing a status check twice. PayPal-Request-Id is the second guard.
+# One lock per order, not one for the whole app: a slow PayPal call on one order must not hold up
+# every other user's payment. Keyed by cart ID, because Confirm runs before the order row exists
+# and each cart has at most one order (cart_id is UNIQUE).
+_order_locks: dict[str, threading.Lock] = {}
+_locks_guard = threading.Lock()  # protects the dict; held only for the lookup, never across a PayPal call
 CAPTURE_WINDOW_SECONDS = 3 * 3600  # PayPal allows capture only within 3 hours of creation
 
 MESSAGES = {
@@ -29,6 +33,22 @@ MESSAGES = {
 
 class CheckoutError(Exception):
     """A checkout step was refused; the message is safe to show the user."""
+
+
+def order_lock(cart_id: str) -> threading.Lock:
+    """The lock of one order (F12). Every money step of that order runs under it."""
+    with _locks_guard:
+        if cart_id not in _order_locks:
+            _order_locks[cart_id] = threading.Lock()
+        return _order_locks[cart_id]
+
+
+def _lock_of(user_id: str, order_id: int) -> threading.Lock:
+    """The lock for an existing order of this user; the row is read again once the lock is held."""
+    order = store.get_order(order_id, user_id)
+    if order is None:
+        raise CheckoutError("Order not found.")
+    return order_lock(order["cart_id"])
 
 
 def order_view(order: dict) -> dict:
@@ -51,7 +71,7 @@ def confirm(session: store.Session, user_id: str, cart_id: str, base_url: str) -
 
     A second Confirm on the same cart returns the existing order and approval link.
     """
-    with LOCK:
+    with order_lock(cart_id):
         order = store.get_order_by_cart(cart_id, user_id)
         if order is None:
             cart = store.get_valid_cart(session, cart_id)  # the 15-minute quote ends at this click
@@ -92,7 +112,7 @@ def _record_capture(order: dict, paypal_order: dict) -> dict:
 
 def handle_return(user_id: str, order_id: int) -> dict:
     """F11: the buyer came back from PayPal. Verify the order, then capture. Returns the updated row."""
-    with LOCK:
+    with _lock_of(user_id, order_id):
         order = store.get_order(order_id, user_id)
         if order is None:
             raise CheckoutError("Order not found.")
@@ -146,7 +166,7 @@ def _keep_for_retry(order: dict) -> dict:
 
 def handle_cancel(user_id: str, order_id: int) -> dict:
     """F13: the buyer cancelled on PayPal. Nothing was captured."""
-    with LOCK:
+    with _lock_of(user_id, order_id):
         order = store.get_order(order_id, user_id)
         if order is None:
             raise CheckoutError("Order not found.")
@@ -192,7 +212,7 @@ def refund(user_id: str, order_id: int, lines: list[int] | None = None) -> dict:
     refunded, and a retry of the failed line repeats its request ID instead of refunding twice.
     Returns the updated row.
     """
-    with LOCK:
+    with _lock_of(user_id, order_id):
         draft = refund_draft(user_id, order_id, lines)  # same checks: own order, paid, lines not refunded before
         order = store.get_order(order_id, user_id)
         items = order["items"]

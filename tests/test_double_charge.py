@@ -68,6 +68,35 @@ def test_repeated_capture_request_id_returns_same_capture():
     assert first == again
 
 
+def test_a_slow_paypal_call_on_one_order_does_not_block_another_order(monkeypatch):
+    """The lock is per order: while order A waits on PayPal, order B can be captured."""
+    s, cart_a = setup_cart()
+    order_a = checkout.confirm(s, "u1", cart_a["id"], "http://t")
+    cart_b = store.create_cart(s, "p1", fetch=s.products.get)
+    order_b = checkout.confirm(s, "u2", cart_b["id"], "http://t")
+    for o in (order_a, order_b):
+        paypal_mock.approve(o["paypal_order_id"])
+    a_waiting, release_a = threading.Event(), threading.Event()
+    real = checkout.paypal.capture_order
+
+    def capture(pp_id, request_id):
+        if pp_id == order_a["paypal_order_id"]:
+            a_waiting.set()
+            assert release_a.wait(5)  # order A's capture hangs until the test releases it
+        return real(pp_id, request_id)
+
+    monkeypatch.setattr(checkout.paypal, "capture_order", capture)
+    thread_a = threading.Thread(target=lambda: checkout.handle_return("u1", order_a["id"]))
+    thread_a.start()
+    assert a_waiting.wait(5)
+    try:
+        assert checkout.handle_return("u2", order_b["id"])["status"] == "COMPLETED"  # not blocked by A
+    finally:
+        release_a.set()
+        thread_a.join()
+    assert store.get_order(order_a["id"], "u1")["status"] == "COMPLETED"
+
+
 def test_new_cart_after_cancel_gets_new_order():
     s, cart = setup_cart()
     order = checkout.confirm(s, "u1", cart["id"], "http://t")
