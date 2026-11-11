@@ -6,7 +6,7 @@ import logging
 import threading
 import time
 
-from app import paypal, store
+from app import memory, paypal, store
 from app.money import to_cents
 
 log = logging.getLogger(__name__)
@@ -78,6 +78,7 @@ def _record_capture(order: dict, paypal_order: dict) -> dict:
     capture = captures[0]
     if capture.get("status") == "COMPLETED":
         store.update_order(order["id"], status="COMPLETED", capture_id=capture.get("id"), note="")
+        memory.record_purchase(order["user_id"], order["items"])  # F18: a purchase supports a brand preference
         return store.get_order(order["id"], order["user_id"])
     return _fail(order, "CAPTURE_FAILED", f"PayPal reported the capture as {capture.get('status') or 'missing'}.")
 

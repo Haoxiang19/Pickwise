@@ -277,3 +277,22 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_multi_shuffle.py`: mean rank with missing = 7 on a worked example, ties keep first appearance, cap at 6, reason from best placement, single ranking unchanged, 3 calls with the same shuffles as seeds 10, 11, 12 in F5, 1 shuffle equals plain `rank`, `recommend` makes 3 model calls in mock mode. By hand: `python -m eval.run_eval --name mock-f17 --runs 1` (keyless) prints the "+ multi-shuffle" rows with 3 calls per request (mock numbers, not results).
 
 **Limits / not verified.** With a real model this triples ranking cost; latency should stay close to one call because the calls run in parallel, but that is not measured. A ranking that failed twice falls back to search order and still counts as one of the 3 rankings, which pulls the result toward search order. In mock mode all three rankings are identical.
+
+## F18 Preference memory: write (`app/memory.py`, `app/agent.py`, `app/checkout.py`)
+
+**What it does.** Saves a one-sentence preference per user with a strength in [-1, 1] when the user states a lasting preference, rejects a recommendation with a reason, or completes a purchase; repeating a preference adds 0.1, contradicting it subtracts 0.2.
+
+**Where.** `app/memory.py`: `preferences` table, `remember`, `_adjust`, `record_purchase`, `list_preferences`, `prompt_block`. `app/agent.py`: `remember_preference` tool (`tool_remember_preference`), `system_prompt`, prompt rules. `app/checkout.py`: `_record_capture` calls `record_purchase`. `app/store.py`: cart items now keep the brand. `app/mock_agent.py`: `PREFER`, `DISLIKE`, `SAVED`, `preference_args`.
+
+**How it works.**
+1. Every agent turn builds the system prompt from the fixed rules plus `prompt_block(user_id)`: the user's saved preferences as `- [id] +0.50 text`, strongest first.
+2. The prompt tells the model to call `remember_preference(text, about_id?, stance?)` for lasting preferences and reasons for rejecting a product; not for one-purchase conditions, and never for health, religion or other sensitive details.
+3. `remember`: with `about_id`, that preference of this user gets +0.1 (`supports`) or -0.2 (`contradicts`), evidence count +1. Without it, a preference with the same text (case-insensitive) is updated the same way; otherwise a new row is inserted at +0.5 (or -0.5 for a new `contradicts`). Strength is clamped to [-1, 1] and rounded to 2 decimals. An unknown or foreign ID, an empty text or a bad stance raises `ValueError`, which goes back to the model as a tool error.
+4. When a capture is recorded as `COMPLETED`, `record_purchase` calls `remember(user, "Likes the brand X")` for each brand in the order items, so buying the same brand again confirms it.
+5. Keyless mock: "I prefer / always buy / love X" saves or confirms "Prefers X"; "I don't like X (anymore)" contradicts a saved preference that mentions X (ID read from the system prompt), or saves "Dislikes X".
+
+**Why.** The agent writes memory itself through a tool ("hot path"), as LangMem and the OpenAI cookbook do; updates target an ID shown in the prompt, so code never has to guess which sentence matches. The strength rule comes from the requirements (MARS); the starting value 0.5 is our choice. See `docs/decisions.md` (F18-F20).
+
+**Verified.** `tests/test_memory.py`: new row at 0.5, same text confirms (+0.1), confirm/contradict by ID, clamping at 1 and -1 without float drift, bad input and another user's ID refused, per-user lists sorted by strength, prompt block format, two purchases of one brand give 0.6 with 2 pieces of evidence, a cancelled payment writes nothing, mock agent saves then contradicts by ID, tool errors returned to the model. By hand (keyless): "I always buy Soundcore" replied "Noted. I will remember: Prefers Soundcore".
+
+**Limits / not verified.** Whether a real model saves the right things (and skips sensitive or one-off ones) is a prompt rule, not checked in code, and not measured. The mock understands only the phrasings above, and a request that contains "I prefer X" is treated as a preference statement rather than a search.

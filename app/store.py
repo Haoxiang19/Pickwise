@@ -48,7 +48,8 @@ def create_cart(session: Session, product_id: str, quantity: int = 1, now: float
         raise CartError(f"The total ${to_dollars(total)} is over your budget of ${to_dollars(session.budget_cents)}.")
     cart = {
         "id": "cart_" + secrets.token_hex(8),
-        "items": [{"product_id": product_id, "title": product["title"], "unit_price_cents": product["price_cents"], "quantity": quantity}],
+        "items": [{"product_id": product_id, "title": product["title"], "brand": product.get("brand", ""),
+                   "unit_price_cents": product["price_cents"], "quantity": quantity}],
         "total_cents": total,
         "currency": "USD",
         "expires_at": (time.time() if now is None else now) + CART_TTL_SECONDS,

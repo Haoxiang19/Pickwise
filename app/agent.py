@@ -6,7 +6,7 @@ propose (prepare a cart, draft a refund); money moves only in HTTP endpoints aft
 import json
 import logging
 
-from app import checkout, llm, mock_agent, recommend as rec, store
+from app import checkout, llm, memory, mock_agent, recommend as rec, store
 from app.money import to_dollars
 from app.store import Session
 
@@ -31,6 +31,12 @@ request: keep every earlier condition unless the user changed it.
 - When the user picks a product, call `prepare_cart` with its ID. You cannot take payments: the user reviews the order summary and clicks Confirm to pay on PayPal.
 - When the user asks about an order, call `get_orders`. Report only the order ID, status and amount it returns.
 - When the user asks for a refund, call `draft_refund` with the order ID. It only prepares the refund: the user must click Confirm refund. Never say a refund is done unless an order status shows REFUNDED.
+- Call `remember_preference` when the user states a lasting preference ("I always buy Sony", "I hate synthetic \
+fabrics") or rejects a recommendation with a reason. Write one short third-person sentence. If it repeats or \
+contradicts a saved preference listed below, pass that preference's `about_id` with `supports` or `contradicts`. \
+Do not save conditions for this purchase only (a budget, a one-off gift) and never save health, religion or other \
+sensitive personal details.
+- Saved preferences are applied by the server when ranking. Do not copy them into the `recommend` request.
 - Keep replies to two or three sentences. The page already shows the products as cards with prices and reasons."""
 
 TOOLS = [
@@ -67,6 +73,15 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {
             "order_id": {"type": "integer", "description": "ID of the order to refund."},
         }, "required": ["order_id"]},
+    }},
+    {"type": "function", "function": {
+        "name": "remember_preference",
+        "description": "Save a lasting shopping preference of the user, or confirm or contradict a saved one.",
+        "parameters": {"type": "object", "properties": {
+            "text": {"type": "string", "description": "One short sentence, e.g. 'Prefers Sony headphones'."},
+            "about_id": {"type": "integer", "description": "ID of a saved preference this repeats or contradicts."},
+            "stance": {"type": "string", "enum": ["supports", "contradicts"], "description": "Default supports."},
+        }, "required": ["text"]},
     }},
 ]
 
@@ -125,8 +140,20 @@ def tool_draft_refund(session: Session, args: dict, ui: dict) -> dict:
             "next_step": "The user must click Confirm refund. Nothing has been refunded yet."}
 
 
+def tool_remember_preference(session: Session, args: dict, ui: dict) -> dict:
+    """F18, proposal tier: writes one preference row; moves no money and the user can delete it (F20)."""
+    pref = memory.remember(session.user_id, args.get("text", ""), args.get("about_id"), args.get("stance") or "supports")
+    ui["memory_changed"] = True
+    return {"saved": {"id": pref["id"], "text": pref["text"], "strength": pref["strength"]}}
+
+
 TOOL_FUNCTIONS = {"recommend": tool_recommend, "prepare_cart": tool_prepare_cart, "get_orders": tool_get_orders,
-                  "draft_refund": tool_draft_refund}
+                  "draft_refund": tool_draft_refund, "remember_preference": tool_remember_preference}
+
+
+def system_prompt(user_id: str) -> str:
+    """Fixed rules plus this user's saved preferences, with IDs so the model can confirm or contradict them."""
+    return SYSTEM_PROMPT + "\n\n" + memory.prompt_block(user_id)
 
 
 def run_tool_call(session: Session, call: dict, ui: dict) -> str:
@@ -153,12 +180,12 @@ def check_reply(message: dict) -> dict:
     raise ValueError("blank reply")
 
 
-def understand(text: str) -> dict:
+def understand(text: str, user_id: str = "") -> dict:
     """Step 1 alone, as the eval runs it: the agent's first model call for a new conversation, no tool executed.
 
     Returns {"request": structured request}, {"ask": question text}, or {"error": reason}.
     """
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": text}]
+    messages = [{"role": "system", "content": system_prompt(user_id)}, {"role": "user", "content": text}]
     message = llm.ask(messages, check_reply, None, tools=TOOLS, mock=mock_agent.reply)
     if message is None:
         return {"error": "no usable reply"}
@@ -178,7 +205,7 @@ def handle_message(session: Session, text: str) -> dict:
     session.history.append({"role": "user", "content": text})
     ui = {}
     for _ in range(MAX_TOOL_ROUNDS):
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + session.history
+        messages = [{"role": "system", "content": system_prompt(session.user_id)}] + session.history
         message = llm.ask(messages, check_reply, None, tools=TOOLS, mock=mock_agent.reply)
         if message is None:
             session.history.append({"role": "assistant", "content": FALLBACK_REPLY})

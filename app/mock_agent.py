@@ -24,6 +24,9 @@ FOLLOW_UP = re.compile(r"^\s*(but|also|and|actually|only|now)\b", re.I)
 ORDER_QUESTION = re.compile(r"\b(order status|my orders?|where is my order|status of (my )?order|orders?\s*#?\s*\d+)\b", re.I)
 ORDER_ID = re.compile(r"\border\s*#?\s*(\d+)\b|#(\d+)", re.I)
 REFUND = re.compile(r"\b(refund|money back|return it)\b", re.I)
+PREFER = re.compile(r"\bi (?:always |really |usually )?(?:prefer|love|only buy|always buy)\s+([^.,!?]+)", re.I)
+DISLIKE = re.compile(r"\bi (?:no longer|don'?t|do not) (?:like|prefer|want)\s+([^.,!?]+?)(?:\s+anymore)?(?:[.,!?]|$)", re.I)
+SAVED = re.compile(r"^- \[(\d+)\] [+-][\d.]+ (.+)$", re.M)
 
 
 def text_message(content: str) -> dict:
@@ -68,6 +71,8 @@ def summarize(result: dict) -> str:
             return "I could not find anything that fits. " + result["note"]
         names = "; ".join(f"{r['title']} ({r['price']})" for r in recs)
         return f"Here are {len(recs)} picks: {names}. {result['note']}".strip()
+    if "saved" in result:
+        return f"Noted. I will remember: {result['saved']['text']}"
     if "next_step" in result and "order_id" in result:
         return f"I prepared a full refund of {result['amount']} for order #{result['order_id']}. Click Confirm refund to send it."
     if "orders" in result:
@@ -117,6 +122,20 @@ def refine(previous: dict, text: str, shown: list[dict]) -> dict:
     return args
 
 
+def preference_args(system_text: str, dislike, prefer) -> dict:
+    """F18 in keyless mode: "I prefer X" saves or confirms; "I don't like X anymore" contradicts a saved one."""
+    saved = SAVED.findall(system_text)  # [(id, text)] from the system prompt's preference list
+    if dislike:
+        thing = dislike.group(1).strip()
+        match = next((pid for pid, text in saved if thing.lower() in text.lower()), None)
+        if match:
+            return {"text": f"Prefers {thing}", "about_id": int(match), "stance": "contradicts"}
+        return {"text": f"Dislikes {thing}", "stance": "supports"}
+    thing = prefer.group(1).strip()
+    match = next((pid for pid, text in saved if text.lower() == f"prefers {thing}".lower()), None)
+    return {"text": f"Prefers {thing}", "about_id": int(match)} if match else {"text": f"Prefers {thing}"}
+
+
 def reply(messages: list[dict]) -> dict:
     last = messages[-1]
     if last["role"] == "tool":
@@ -133,6 +152,10 @@ def reply(messages: list[dict]) -> dict:
     if ORDER_QUESTION.search(text):
         m = ORDER_ID.search(text)
         return tool_message("get_orders", {"order_id": int(m.group(1) or m.group(2))} if m else {})
+
+    dislike, prefer = DISLIKE.search(text), PREFER.search(text)
+    if dislike or prefer:
+        return tool_message("remember_preference", preference_args(messages[0]["content"], dislike, prefer))
 
     shown = last_recommendations(messages)
     pick = PICK.search(text)
