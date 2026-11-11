@@ -166,3 +166,21 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_checkout.py`: capture after approval with the right request ID; refresh does not call PayPal; not approved means cancelled without capture; four amount/currency mismatch cases; error mapping for declined, not approved and unknown issues; `PENDING` capture is not paid; already-captured reads back; `COMPLETED` on read-back recorded without capture; network error then retry succeeds; 3-hour window; cancel only from `CREATED`; another user cannot return or cancel. `tests/test_api.py`: full mock purchase (a forged PayPal ID in the return URL is ignored) and cancel flow with privacy. By hand (keyless): French press, Confirm, Approve, result "Payment successful. Order #2, $39.95, PayPal order ID MOCK-..., COMPLETED"; water bottle request, Confirm, Cancel, result "Payment cancelled. Nothing was charged."
 
 **Limits / not verified.** Not run against the sandbox: that an approved order reads back as `APPROVED`, the real error body shape, and other capture statuses are from the docs. A `PENDING` capture is shown as failed with "Nothing was charged", which may be wrong for a real pending capture (question in `docs/progress.md`). If the server restarts, orders are lost (Render free tier).
+
+## F12 No double charge (`app/checkout.py`, `app/store.py`, `static/index.html`)
+
+**What it does.** Repeated clicks, simultaneous requests and page refreshes never create a second PayPal order or a second capture.
+
+**Where.** `checkout.LOCK`; the status checks at the top of `confirm` and `handle_return`; `UNIQUE` on `orders.cart_id`; deterministic request IDs in `confirm` / `handle_return`; the Confirm button's `disabled` flag; the 303 redirect to the read-only result page.
+
+**How it works (four layers, from the outside in).**
+1. Page: the Confirm button disables itself on the first click.
+2. Result page: after capture the browser is redirected to `/?order_id=...`, which only reads the order. Refreshing it never captures.
+3. Local state, under one process-wide lock: Confirm reuses the row for a cart (and its stored approval link); capture runs only from `CREATED`; refund (F16) only from `COMPLETED`. The lock makes "check status, then call PayPal, then write status" one step for concurrent requests.
+4. PayPal: `create-{cart_id}`, `capture-{order_id}` and `refund-{order_id}` as `PayPal-Request-Id`, so a retry returns PayPal's earlier result instead of repeating the action.
+
+**Why.** The request ID alone is not enough: PayPal does not document how long it keeps order request IDs, and it may reject two simultaneous requests with the same ID. A lock is enough because the app runs as one worker process (requirements section 10); several workers would need a database-level guard instead.
+
+**Verified.** `tests/test_double_charge.py`: 5 threads confirming the same cart make one PayPal create call and one order; 5 threads returning from PayPal make one capture call; the same capture request ID gives the same capture in the mock; a new cart after a cancel gets a new order. Both thread tests fail when the lock is replaced by a no-op (checked by hand). Also covered: `test_second_confirm_returns_same_order_and_link`, `test_refresh_after_result_does_not_call_paypal`.
+
+**Limits / not verified.** The lock does not protect across processes or restarts. PayPal's real behaviour for repeated request IDs was not observed (no sandbox credentials).

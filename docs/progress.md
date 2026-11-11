@@ -12,9 +12,10 @@ Read this first in a new session. Updated before every commit.
 - F8 order summary: server-priced cart, 15-minute quote, prepare_cart tool, Choose button.
 - F9 confirm, F10 create PayPal order and redirect (`app/checkout.py`, `app/paypal.py`, `app/paypal_mock.py`, SQLite orders in `app/store.py`).
 - F11 verify then capture, F13 cancel/failure messages, F14 result page.
+- F12 no double charge (lock + local status + request IDs + disabled button). **M2 done in mock mode**; its real done-criterion (one real sandbox payment) needs PayPal sandbox credentials.
 
 ## In progress
-- M2: F12 no double charge: concurrency and repeat tests, implementation note. Then M2 is done in mock mode.
+- M3: F7 refine from feedback (prompt rule + keyless mock support).
 
 ## Next
 - M2: F8-F14. M3: F7, F15, F16. M4: eval script. (M5 and P2 not planned for this run.)
