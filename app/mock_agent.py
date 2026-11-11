@@ -16,6 +16,8 @@ AMOUNT = re.compile(
     re.I)
 EXCLUDE = re.compile(r"\b(?:no|not|without|avoid)\s+([a-z0-9][\w-]*)", re.I)
 NOT_KEYWORDS = {"budget", "limit", "price", "more", "too", "than", "idea"}
+PICK = re.compile(r"\b(?:buy|take|choose|pick|get|want)\b.*?\b(first|1st|second|2nd|third|3rd|1|2|3)\b", re.I)
+ORDINALS = {"first": 0, "1st": 0, "1": 0, "second": 1, "2nd": 1, "2": 1, "third": 2, "3rd": 2, "3": 2}
 
 
 def text_message(content: str) -> dict:
@@ -60,7 +62,19 @@ def summarize(result: dict) -> str:
             return "I could not find anything that fits. " + result["note"]
         names = "; ".join(f"{r['title']} ({r['price']})" for r in recs)
         return f"Here are {len(recs)} picks: {names}. {result['note']}".strip()
+    if "cart_id" in result:
+        return f"Your order summary is ready: {result['quantity']} x {result['title']}, total {result['total']}. Click Confirm to pay on PayPal."
     return "Done."
+
+
+def last_recommendations(messages: list[dict]) -> list[dict]:
+    """IDs shown most recently, read back from the latest recommend tool result in the history."""
+    for m in reversed(messages):
+        if m["role"] == "tool":
+            result = json.loads(m["content"])
+            if result.get("recommendations"):
+                return result["recommendations"]
+    return []
 
 
 def reply(messages: list[dict]) -> dict:
@@ -69,6 +83,11 @@ def reply(messages: list[dict]) -> dict:
         return text_message(summarize(json.loads(last["content"])))
 
     text = last["content"]
+    shown = last_recommendations(messages)
+    pick = PICK.search(text)
+    if pick and ORDINALS[pick.group(1).lower()] < len(shown):
+        return tool_message("prepare_cart", {"product_id": shown[ORDINALS[pick.group(1).lower()]]["id"], "quantity": 1})
+
     previous = [m for m in messages[:-1] if m["role"] in ("user", "assistant")]
     # If the last thing we said was the budget question, this message answers it: join it to the request.
     if len(previous) >= 2 and (previous[-1].get("content") or "").endswith(BUDGET_QUESTION) and previous[-2]["role"] == "user":

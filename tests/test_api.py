@@ -37,3 +37,14 @@ def test_sessions_are_per_user(client):
 
 def test_index_served(client):
     assert "Shopping Agent" in client.get("/").text
+
+
+def test_cart_endpoint_uses_session_products_only(client):
+    data = client.post("/api/chat", json={"message": "noise cancelling headphones under $100"}).json()
+    rec = data["recommendations"][0]
+    cart = client.post("/api/cart", json={"product_id": rec["id"], "quantity": 1}).json()
+    assert cart["total_cents"] == rec["price_cents"]
+    # Another user's browser cannot use products found in this session.
+    other = TestClient(main.app)
+    r = other.post("/api/cart", json={"product_id": rec["id"]})
+    assert r.status_code == 400 and "Unknown product" in r.json()["detail"]

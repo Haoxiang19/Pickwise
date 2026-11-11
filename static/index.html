@@ -15,6 +15,11 @@
   .card { background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
   .price { font-weight: 600; }
   .note { color: #8a5a00; }
+  .summary { background: #fff; border: 2px solid #0070ba; border-radius: 8px; padding: 12px; margin: 8px 0; }
+  .summary table { border-collapse: collapse; width: 100%; }
+  .summary td { padding: 2px 0; }
+  .summary td:last-child { text-align: right; }
+  .total td { font-weight: 700; border-top: 1px solid #ccc; padding-top: 6px; }
   details { margin: 8px 0; font-size: .9rem; }
   form { display: flex; gap: 8px; position: sticky; bottom: 0; background: #fafafa; padding: 8px 0; }
   input[type=text] { flex: 1; padding: 10px; font-size: 1rem; }
@@ -57,6 +62,11 @@ function showRecommendations(data) {
     card.appendChild(el("div", r.title + (r.brand ? " · " + r.brand : "")));
     card.appendChild(el("div", dollars(r.price_cents), "price"));
     card.appendChild(el("div", r.reason));
+    const choose = card.appendChild(el("button", "Choose"));
+    choose.onclick = async () => {
+      try { showSummary(await api("/api/cart", {product_id: r.id, quantity: 1})); }
+      catch (err) { add(el("div", "Error: " + err.message, "msg bot")); }
+    };
   }
   if (data.note) box.appendChild(el("p", data.note, "note"));
   if (data.rejected && data.rejected.length) {
@@ -67,11 +77,28 @@ function showRecommendations(data) {
   }
 }
 
+// F8: order summary. Every number here comes from the server.
+function showSummary(cart) {
+  const box = add(el("div", undefined, "summary"));
+  box.appendChild(el("strong", "Order summary"));
+  const table = box.appendChild(el("table"));
+  const row = (label, value, cls) => {
+    const tr = table.appendChild(el("tr", undefined, cls));
+    tr.appendChild(el("td", label)); tr.appendChild(el("td", value));
+  };
+  row("Product", cart.title);
+  row("Unit price", dollars(cart.unit_price_cents));
+  row("Quantity", String(cart.quantity));
+  row("Total (" + cart.currency + ")", dollars(cart.total_cents), "total");
+  return box;
+}
+
 async function send(text) {
   add(el("div", text, "msg user"));
   const data = await api("/api/chat", {message: text});
   add(el("div", data.reply, "msg bot"));
   if (data.recommendations) showRecommendations(data);
+  if (data.cart) showSummary(data.cart);
 }
 
 document.getElementById("form").addEventListener("submit", async e => {

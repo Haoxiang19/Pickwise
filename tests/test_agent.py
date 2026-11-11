@@ -108,3 +108,25 @@ def test_blank_reply_retried_once_then_fallback(monkeypatch):
 def test_model_has_no_money_tools():
     names = {t["function"]["name"] for t in agent.TOOLS}
     assert not names & {"create_order", "capture", "refund", "pay"}
+
+
+# --- F8 cart through the agent ---
+
+def test_pick_prepares_cart_priced_by_server():
+    s = Session()
+    out = agent.handle_message(s, "noise cancelling headphones under $100")
+    second = out["recommendations"][1]
+    out = agent.handle_message(s, "I'll take the second one")
+    assert out["cart"]["title"] == second["title"]
+    assert out["cart"]["total_cents"] == second["price_cents"] and out["cart"]["quantity"] == 1
+
+
+def test_prepare_cart_ignores_model_price_and_rejects_unknown_id():
+    s = Session()
+    agent.handle_message(s, "noise cancelling headphones under $100")
+    pid = next(iter(s.products))
+    ui = {}
+    result = json.loads(agent.run_tool_call(s, call("prepare_cart", {"product_id": pid, "price": 0.01}), ui))
+    assert ui["cart"]["unit_price_cents"] == s.products[pid]["price_cents"] != 1
+    result = json.loads(agent.run_tool_call(s, call("prepare_cart", {"product_id": "made-up"}), {}))
+    assert "Unknown product" in result["error"]

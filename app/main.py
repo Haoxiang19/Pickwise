@@ -4,7 +4,7 @@ import os
 import secrets
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -36,6 +36,11 @@ class ChatIn(BaseModel):
     message: str
 
 
+class CartIn(BaseModel):
+    product_id: str
+    quantity: int = 1
+
+
 @app.get("/")
 def index():
     return FileResponse(INDEX)
@@ -51,3 +56,14 @@ def status():
 def chat(body: ChatIn, request: Request):
     session = store.get_session(request.state.user_id)
     return agent.handle_message(session, body.message.strip()[:2000])
+
+
+@app.post("/api/cart")
+def create_cart(body: CartIn, request: Request):
+    """F8: the "Choose" button on a card. Same rules as the model's prepare_cart tool."""
+    session = store.get_session(request.state.user_id)
+    try:
+        cart = store.create_cart(session, body.product_id, body.quantity)
+    except store.CartError as e:
+        raise HTTPException(400, str(e))
+    return agent.cart_view(cart)

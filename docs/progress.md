@@ -9,9 +9,10 @@ Read this first in a new session. Updated before every commit.
 - F3 multi-query search, F4 hard filter (`app/recommend.py`).
 - F5 reasoning rank, F6 top-3 pick and result shape (`app/recommend.py`).
 - F1 parse request, F2 ask for budget: agent loop, keyless mock agent, /api/chat, minimal page. **M1 done** (in mock mode a request gives 3 recommendations; tests pass).
+- F8 order summary: server-priced cart, 15-minute quote, prepare_cart tool, Choose button.
 
 ## In progress
-- M2: F8 order summary (cart) next.
+- M2: F9+F10 Confirm creates the order row and the PayPal order (`app/paypal.py` with mock), redirect to approval.
 
 ## Next
 - M2: F8-F14. M3: F7, F15, F16. M4: eval script. (M5 and P2 not planned for this run.)
