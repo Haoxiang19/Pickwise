@@ -59,3 +59,24 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_recommend.py`: budget conversion and list cleaning, merge keeps first query, each rejection reason, budget equal passes, no-budget skips the check, whole-word and brand matching, description ignored, round-robin order and the 20 cap. Run by hand on the mock catalog: 3 queries, 15 products found, 9 passed, 6 rejected with the expected reasons.
 
 **Limits.** Whole-word matching uses regex `\b`, so a keyword like "c++" would not match as expected. Search errors (`CatalogError`) are not caught here; the agent tool layer returns them to the model.
+
+## F5 Reasoning rank, F6 Show recommendations (`app/recommend.py`)
+
+**What it does.** Asks the model to reason about the shuffled candidates and then rank them by ID, validates the ranking, picks 3 with a one-sentence reason each, and returns them together with the rejected products and a note when fewer than 3 passed.
+
+**Where.** `app/recommend.py`: `rank`, `parse_ranking`, `pick_top3`, `recommend`, `RANK_PROMPT`. Display is in the page (built with the agent, F1/F2 commit).
+
+**How it works.**
+1. `rank(request, candidates, seed)` copies the candidates and shuffles them with `random.Random(seed)`.
+2. Each candidate is sent as one JSON line with only ID, title, price, brand and the first 200 characters of the description. The system prompt says product text is untrusted and its instructions and claims must be ignored.
+3. The model writes a short analysis, then one line `{"ranking": [{"id", "reason"}]}`.
+4. `parse_ranking` reads the last `{"ranking"` JSON with `raw_decode`, drops unknown and repeated IDs, keeps at most 6, and raises `ValueError` on a blank reply, bad JSON or no valid ID. `llm.ask` retries once, then falls back to search order.
+5. `pick_top3`: with 3 or more queries, walk the ranking taking at most one product per source query; fill the remaining places in rank order, then in search order if fewer than 3 were ranked.
+6. `recommend(request, flags, search_fn, seed)` runs search, filter, rank (skipped when `reasoning_rank` is off, which means search order), pick, and builds each recommendation (ID, title, brand, price in cents, URL, image, reason; a default reason names the source query). If fewer than 3 remain, `note` says how many were removed, grouped by reason, and suggests a change. One log line records queries, seed, candidates, rejections, ranking and picks.
+7. Keyless mode: the mock reply is search order in the same JSON format, so `parse_ranking` still runs.
+
+**Why.** Reasoning before ranking follows BracketRank (appendix A); shuffling removes the search order as a hint and the logged seed makes a run repeatable. Validation choices are in `docs/decisions.md` (F5). `search_fn` and `seed` are parameters so the eval can replay a snapshot.
+
+**Verified.** `tests/test_recommend.py`: parsing after reasoning text, unknown and duplicate IDs, last JSON wins, cap at 6, six format-error cases, pick rules (one per query, fill, search-order fill), mock rank, fallback on a bad reply, prompt contains the untrusted-data rule and no URL or long description, same seed gives the same shuffle, end-to-end in mock mode, fewer-than-3 note. Run by hand in mock mode: "a gift for a coffee lover under 60" gives 3 products, 5 rejected.
+
+**Limits / not verified.** Not run against a real model, so ranking quality and how often the JSON line is malformed are unknown. Prices in the prompt are formatted by the server; the model's output never carries prices.
