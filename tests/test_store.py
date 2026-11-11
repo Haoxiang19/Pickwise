@@ -64,13 +64,13 @@ def test_cart_uses_the_refreshed_price_not_the_stored_one():
     fresh = product(price=3000)
     c = store.create_cart(s, "p1", 2, fetch=lambda pid: fresh)
     assert c["total_cents"] == 6000 and c["items"][0]["unit_price_cents"] == 3000
-    assert c["price_was_cents"] == 2500          # so the page can say the price moved
+    assert c["items"][0]["price_was_cents"] == 2500  # so the page can say the price moved
     assert s.products["p1"]["price_cents"] == 3000  # the session now holds the fresh product
 
 
 def test_unchanged_price_is_not_reported_as_a_change():
     s = session_with([product(price=2500)])
-    assert "price_was_cents" not in cart(s)
+    assert "price_was_cents" not in cart(s)["items"][0]
 
 
 def test_product_that_went_out_of_stock_or_over_budget_is_refused():
@@ -105,3 +105,55 @@ def test_default_fetch_reads_the_catalog(monkeypatch):
     monkeypatch.setattr(store.catalog, "get_product", lambda pid: seen.append(pid) or product(price=1234))
     assert store.create_cart(s, "p1")["total_cents"] == 1234
     assert seen == ["p1"]
+
+
+# --- F21 multi-item cart ---
+
+def lines_cart(session, lines):
+    return store.create_cart_items(session, lines, fetch=session.products.get)
+
+
+def test_two_line_total_in_cents():
+    s = session_with([product("a", price=1999), product("b", price=550)])
+    c = lines_cart(s, [("a", 2), ("b", 3)])
+    assert c["total_cents"] == 1999 * 2 + 550 * 3 == 5648
+    assert [(i["product_id"], i["quantity"]) for i in c["items"]] == [("a", 2), ("b", 3)]
+
+
+def test_total_over_budget_is_refused_although_each_line_fits():
+    s = session_with([product("a", price=6000), product("b", price=6000)], budget=10000)
+    with pytest.raises(store.CartError, match=r"total \$120.00 is over your budget of \$100.00"):
+        lines_cart(s, [("a", 1), ("b", 1)])
+    assert s.carts == {}
+
+
+def test_one_bad_line_refuses_the_whole_cart():
+    s = session_with([product("a")])
+    with pytest.raises(store.CartError, match="Unknown product"):
+        lines_cart(s, [("a", 1), ("made-up", 1)])
+    assert s.carts == {}
+
+
+@pytest.mark.parametrize("lines,msg", [
+    ([("a", 1), ("a", 2)], "listed twice"),
+    ([(str(i), 1) for i in range(7)], "at most 6"),
+    ([], "empty"),
+])
+def test_cart_shape_rules(lines, msg):
+    s = session_with([product(str(i)) for i in range(7)] + [product("a")])
+    with pytest.raises(store.CartError, match=msg):
+        lines_cart(s, lines)
+
+
+def test_six_lines_are_allowed():
+    s = session_with([product(str(i), price=100) for i in range(6)])
+    assert lines_cart(s, [(str(i), 1) for i in range(6)])["total_cents"] == 600
+
+
+def test_price_change_is_recorded_on_the_item_that_changed():
+    s = session_with([product("a", price=1000), product("b", price=2000)])
+    fresh = {"a": product("a", price=1000), "b": product("b", price=2500)}
+    c = store.create_cart_items(s, [("a", 1), ("b", 2)], fetch=fresh.get)
+    assert "price_was_cents" not in c["items"][0]
+    assert c["items"][1]["price_was_cents"] == 2000 and c["items"][1]["unit_price_cents"] == 2500
+    assert c["total_cents"] == 1000 + 5000

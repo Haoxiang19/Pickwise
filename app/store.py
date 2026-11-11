@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 
 CART_TTL_SECONDS = 15 * 60  # a cart is a price quote valid until the Confirm click
 MAX_QUANTITY = 10
+MAX_CART_LINES = 6  # F21: also the most items a set recommendation can have
 
 
 class CartError(ValueError):
@@ -58,12 +59,8 @@ def _refreshed(session: Session, product_id: str, fetch) -> dict:
     return fresh
 
 
-def create_cart(session: Session, product_id: str, quantity: int = 1, now: float | None = None, fetch=None) -> dict:
-    """F8: price a cart on the server. The model only supplies a product ID and a quantity.
-
-    The price and stock are read back from the catalog first: a search result can be minutes old,
-    and Channel3 asks for both to be refreshed before they are shown. `fetch` is for tests.
-    """
+def _cart_item(session: Session, product_id: str, quantity, fetch) -> dict:
+    """Check one line and return it priced from the catalog. Any failure raises CartError."""
     cached = session.products.get(product_id)
     if cached is None:
         raise CartError("Unknown product: only products from a search in this conversation can be ordered.")
@@ -72,21 +69,46 @@ def create_cart(session: Session, product_id: str, quantity: int = 1, now: float
         raise CartError("That product is not available to order.")
     if not isinstance(quantity, int) or not 1 <= quantity <= MAX_QUANTITY:
         raise CartError(f"Quantity must be between 1 and {MAX_QUANTITY}.")
-    total = product["price_cents"] * quantity
+    item = {"product_id": product_id, "title": product["title"], "brand": product.get("brand", ""),
+            "unit_price_cents": product["price_cents"], "quantity": quantity}
+    if isinstance(cached["price_cents"], int) and cached["price_cents"] != product["price_cents"]:
+        item["price_was_cents"] = cached["price_cents"]  # the page and the agent tell the user it moved
+    return item
+
+
+def create_cart_items(session: Session, lines: list, now: float | None = None, fetch=None) -> dict:
+    """F8, F21: price a cart of 1 to 6 different products on the server.
+
+    `lines` is a list of (product_id, quantity); the model and the page supply nothing else.
+    Each price and stock is read back from the catalog first: a search result can be minutes old,
+    and Channel3 asks for both to be refreshed before they are shown. `fetch` is for tests.
+    One bad line refuses the whole cart, so the user never pays for a partial set by surprise.
+    """
+    if not lines:
+        raise CartError("The cart is empty. Choose at least one product.")
+    if len(lines) > MAX_CART_LINES:
+        raise CartError(f"A cart can hold at most {MAX_CART_LINES} different products.")
+    ids = [product_id for product_id, _ in lines]
+    if len(set(ids)) != len(ids):
+        raise CartError("The same product is listed twice. Set its quantity instead.")
+    items = [_cart_item(session, product_id, quantity, fetch) for product_id, quantity in lines]
+    total = sum(i["unit_price_cents"] * i["quantity"] for i in items)
     if session.budget_cents is not None and total > session.budget_cents:
         raise CartError(f"The total ${to_dollars(total)} is over your budget of ${to_dollars(session.budget_cents)}.")
     cart = {
         "id": "cart_" + secrets.token_hex(8),
-        "items": [{"product_id": product_id, "title": product["title"], "brand": product.get("brand", ""),
-                   "unit_price_cents": product["price_cents"], "quantity": quantity}],
+        "items": items,
         "total_cents": total,
         "currency": "USD",
         "expires_at": (time.time() if now is None else now) + CART_TTL_SECONDS,
     }
-    if isinstance(cached["price_cents"], int) and cached["price_cents"] != product["price_cents"]:
-        cart["price_was_cents"] = cached["price_cents"]  # the page and the agent tell the user it moved
     session.carts[cart["id"]] = cart
     return cart
+
+
+def create_cart(session: Session, product_id: str, quantity: int = 1, now: float | None = None, fetch=None) -> dict:
+    """A cart with one product (F8); kept so existing callers do not change."""
+    return create_cart_items(session, [(product_id, quantity)], now=now, fetch=fetch)
 
 
 def get_valid_cart(session: Session, cart_id: str, now: float | None = None) -> dict:

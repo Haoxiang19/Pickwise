@@ -61,7 +61,11 @@ Priorities: P0 is required. P1 starts only after all of P0 works against the rea
 
 ### P2
 
-Side-by-side comparison table; multiple items per order; an LLM judge with its agreement rate against human labels; eval for multi-turn refinement; structured product profiles; separate models for query generation and ranking.
+Side-by-side comparison table; an LLM judge with its agreement rate against human labels; eval for multi-turn refinement; structured product profiles; separate models for query generation and ranking.
+
+| ID | Feature | Acceptance criteria |
+| --- | --- | --- |
+| F21 | Multi-item cart | A cart holds 1 to 6 different products, each with a quantity; the total is the sum computed by the server in integer cents; a total over the budget refuses the whole cart; one unknown, unavailable or duplicate product refuses the whole cart; the PayPal order carries one line item per product and an item total equal to the amount |
 
 ## 4. Recommendation pipeline spec
 
@@ -111,7 +115,7 @@ Guaranteed in code:
 
 - Prices come from the server-side search cache and are computed in integer cents.
 - Only product IDs returned by a search in the current session can enter a cart.
-- A cart whose total exceeds the user's budget is refused. With no budget set (F2), this check is skipped.
+- A cart holds 1 to 6 different products (F21). A cart whose total exceeds the user's budget is refused; the check is on the cart total, not on each product. With no budget set (F2), this check is skipped.
 - A cart is a quote valid for 15 minutes; after that the user must choose again. The 15 minutes cover the time up to the Confirm click. Confirm copies the items and the total onto the order row, and from then on the order row is the reference, not the cart.
 - Before capture, the order is read back from PayPal; capture happens only if the status is `APPROVED` and the amount and currency equal the order row. Amounts from PayPal are strings such as `"12.34"`; they are converted to integer cents with `Decimal`, never with float.
 - An order is paid only when `purchase_units[0].payments.captures[0].status` in the capture response is `COMPLETED`. The order-level status alone is not enough.

@@ -38,9 +38,16 @@ class ChatIn(BaseModel):
     message: str
 
 
-class CartIn(BaseModel):
+class CartLine(BaseModel):
     product_id: str
     quantity: int = 1
+
+
+class CartIn(BaseModel):
+    """One product (the card's Choose button) or several (`items`, F21); exactly one of the two."""
+    product_id: str | None = None
+    quantity: int = 1
+    items: list[CartLine] | None = None
 
 
 class ConfirmIn(BaseModel):
@@ -95,10 +102,13 @@ def delete_memory(pref_id: int, request: Request):
 
 @app.post("/api/cart")
 def create_cart(body: CartIn, request: Request):
-    """F8: the "Choose" button on a card. Same rules as the model's prepare_cart tool."""
+    """F8, F21: the "Choose" button on a card, or a list of items. Same rules as the model's prepare_cart tool."""
+    if (body.product_id is None) == (body.items is None):
+        raise HTTPException(400, "Send either product_id or items, not both.")
     session = store.get_session(request.state.user_id)
+    lines = [(body.product_id, body.quantity)] if body.items is None else [(i.product_id, i.quantity) for i in body.items]
     try:
-        cart = store.create_cart(session, body.product_id, body.quantity)
+        cart = store.create_cart_items(session, lines)
     except store.CartError as e:
         raise HTTPException(400, str(e))
     return agent.cart_view(cart)

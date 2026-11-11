@@ -98,12 +98,13 @@ function showSummary(cart) {
     const tr = table.appendChild(el("tr", undefined, cls));
     tr.appendChild(el("td", label)); tr.appendChild(el("td", value));
   };
-  row("Product", cart.title);
-  row("Unit price", dollars(cart.unit_price_cents));
-  row("Quantity", String(cart.quantity));
+  row("Product", "Unit price x quantity");
+  for (const item of cart.items) row(item.title, dollars(item.unit_price_cents) + " x " + item.quantity);
   row("Total (" + cart.currency + ")", dollars(cart.total_cents), "total");
-  if (cart.price_was_cents != null) {
-    box.appendChild(el("p", "The price changed from " + dollars(cart.price_was_cents) + " since the search. The total above is the current price.", "note"));
+  for (const item of cart.items) {
+    if (item.price_was_cents != null) {
+      box.appendChild(el("p", "The price of " + item.title + " changed from " + dollars(item.price_was_cents) + " since the search. The total above is the current price.", "note"));
+    }
   }
   box.appendChild(el("p", "Nothing is charged until you approve the payment on PayPal.", "note"));
   const pay = box.appendChild(el("button", "Confirm and pay with PayPal"));

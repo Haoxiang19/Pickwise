@@ -109,6 +109,8 @@ What was actually built, one entry per feature. Written after each feature is fi
 
 **What it does.** Turns a chosen product into a cart (a 15-minute price quote) whose items and total are computed by the server in integer cents, and shows it as an order summary.
 
+Since F21 the same checks run per line in `create_cart_items`, and `create_cart` is a one-line wrapper around it (see the F21 entry).
+
 **Where.** `app/store.py`: `create_cart`, `_refreshed`, `get_valid_cart`, `CartError`, `Session.carts`. `app/catalog.py`: `get_product`. `app/agent.py`: `prepare_cart` tool (`tool_prepare_cart`), `cart_view`. `app/main.py`: `POST /api/cart` (the card's Choose button). `static/index.html`: `showSummary`.
 
 **How it works.**
@@ -116,8 +118,8 @@ What was actually built, one entry per feature. Written after each feature is fi
 2. `create_cart` looks the ID up in `session.products` (only products returned by a search in this session); unknown IDs are refused.
 3. The product is then read back from the catalog with the free `catalog.get_product`, because a search result can be minutes old and Channel3 asks for prices and availability to be refreshed before they are shown. The session's copy is replaced by the fresh one. A product that no longer exists, or a catalog failure, refuses the cart rather than quoting an unconfirmed price.
 4. It refuses products that are out of stock, have no price or are not USD, and quantities outside 1-10. These checks run on the refreshed product, so an item that just sold out is caught here.
-5. Total = server unit price x quantity, in cents. When the refreshed price differs from the one the card showed, the cart carries `price_was_cents` and both the page and the agent say so. If the session has a budget and the total is above it, the cart is refused; with no budget the check is skipped.
-6. The cart gets a random ID, a one-item snapshot (product ID, title, unit price, quantity), the total, `USD`, and `expires_at` = now + 15 minutes. `get_valid_cart` (used by Confirm in F9) refuses unknown or expired carts.
+5. Total = server unit price x quantity, in cents. When the refreshed price differs from the one the card showed, that cart item carries `price_was_cents` and both the page and the agent say so. If the session has a budget and the total is above it, the cart is refused; with no budget the check is skipped.
+6. The cart gets a random ID, an item snapshot (product ID, title, brand, unit price, quantity), the total, `USD`, and `expires_at` = now + 15 minutes. `get_valid_cart` (used by Confirm in F9) refuses unknown or expired carts.
 7. Rule errors are `CartError`, shown to the user (HTTP 400) or returned to the model as a tool error.
 8. The page shows product, unit price, quantity and total from the server's response, plus the price-change line when there is one.
 
@@ -125,7 +127,7 @@ What was actually built, one entry per feature. Written after each feature is fi
 
 **Verified.** `tests/test_store.py`: integer-cent total, unknown ID, quantity bounds and type, unavailable products, budget on the total, no-budget skip, expiry at 15 minutes, and for the read-back: the refreshed price is used and recorded as a change, an unchanged price is not reported, a product that sold out or rose over budget is refused, a product that disappeared is refused, a catalog failure refuses the cart instead of quoting a stale price, and the default path calls `catalog.get_product`. `tests/test_catalog.py`: `get_product` from the mock catalog and over HTTP (URL shape, both response envelopes, 404 means gone, retry, error code). `tests/test_agent.py`: "take the second one" prepares the right cart at the server price; a model-supplied price is ignored; an invented ID returns an error. `tests/test_api.py`: Choose endpoint works, and another browser cannot use this session's product. By hand (keyless): "a yoga mat under $120", Choose on the second card shows Lululemon The Mat 5mm, $108.00, quantity 1, total $108.00.
 
-**Limits.** One product per cart (multiple items is P2). Expired carts stay in memory until restart. The quantity can only be changed by asking the agent; the page always sends 1. The read-back costs one free Channel3 call per Choose click and has not been run against the real API, so the response envelope of `GET /v1/products/{id}` is handled defensively; the price is confirmed at Choose but not again at Confirm, so a change during the 15-minute quote is not caught.
+**Limits.** Expired carts stay in memory until restart. The quantity can only be changed by asking the agent; the page always sends 1. The read-back costs one free Channel3 call per Choose click and has not been run against the real API, so the response envelope of `GET /v1/products/{id}` is handled defensively; the price is confirmed at Choose but not again at Confirm, so a change during the 15-minute quote is not caught.
 
 ## F9 User confirmation, F10 Create order and redirect (`app/checkout.py`, `app/paypal.py`, `app/paypal_mock.py`, `app/store.py`)
 
@@ -338,3 +340,23 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_memory.py`: list shows the saved entry; another browser sees nothing and cannot delete it (404); delete works once, then 404; a deleted memory stops appearing in reasons in the same conversation. By hand (keyless): the panel showed "Prefers Soundcore (strength 0.5)"; Delete emptied the list.
 
 **Limits.** No undo. Strength is shown as a raw number. Not checked at phone width.
+
+## F21 Multi-item cart (`app/store.py`, `app/agent.py`, `app/main.py`, `static/index.html`)
+
+**What it does.** A cart can hold 1 to 6 different products, each with a quantity. The server prices every line, sums the total in cents and refuses the whole cart if any line breaks a rule or the total is over the budget. PayPal still receives only the total (line items are the next commit).
+
+**Where.** `app/store.py`: `create_cart_items`, `_cart_item`, `MAX_CART_LINES`; `create_cart` is now a one-line wrapper. `app/agent.py`: `prepare_cart` tool schema (optional `items`), `cart_lines`, `tool_prepare_cart`, `cart_view`. `app/main.py`: `CartIn`, `CartLine`, `POST /api/cart`. `app/mock_agent.py`: the cart sentence in `summarize`. `static/index.html`: `showSummary`.
+
+**How it works.**
+1. Input is a list of `(product_id, quantity)`. The model sends either `product_id`/`quantity` or `items`; `cart_lines` turns both into lines and reads nothing else, so a price in the arguments is ignored. The HTTP endpoint takes exactly one of `product_id` or `items` and returns 400 otherwise.
+2. `create_cart_items` first refuses an empty list, more than 6 lines and a repeated product ID ("set its quantity instead"). These checks need no catalog call, so they run first.
+3. Each line then goes through `_cart_item`, the same checks and order as the F8 single-product cart: known to this session's searches, read back from the catalog, in stock with a USD price, quantity an int from 1 to 10. The first failing line raises `CartError` and no cart is stored.
+4. Total = sum of unit price x quantity. If the session has a budget and the total is above it, the cart is refused with the same message as F8, even when every line alone is under the budget.
+5. A line whose refreshed price differs from the searched one carries its own `price_was_cents`. The tool result gives the model each title with its quantity, the total, and one price note per changed item; the page shows one row per item (title, unit price x quantity), the server's total, then one price-change line per changed item.
+6. Confirm is unchanged: it copies `items` and `total_cents` to the order row, so a multi-item order is captured, shown and refunded (whole order, F16) like a single-item one. An item's `price_was_cents`, when present, is copied into the order's `items` snapshot with the rest of the item; nothing reads it there.
+
+**Why.** One bad line refuses the whole cart instead of dropping that line, so the user never sees a total for a set they did not choose. The budget is checked on the total because that is what the user pays. Duplicates are refused rather than merged so that one line always means one product, which refund by line (F23) relies on. The limit of 6 lines matches the set-recommendation ceiling and keeps the PayPal body small. Keeping `create_cart` as a wrapper left every existing caller and test of F8-F16 working unchanged.
+
+**Verified.** `tests/test_store.py`: two-line total in cents; total over budget refused although each line fits; unknown ID in the second line refuses the cart and stores nothing; duplicate ID, 7 lines and an empty list refused; 6 lines allowed; a price change recorded on the right item. `tests/test_agent.py`: `prepare_cart` with `items` sums server prices and ignores a model price; an invented ID in `items` is an error and no cart is stored. `tests/test_api.py`: `POST /api/cart` with `items`; both fields or neither is 400; a full mock purchase of a two-item cart ends `COMPLETED` with both items and the summed amount. By hand (keyless, server restarted): single-product flow unchanged (yoga mat, Choose, Confirm, mock approve, status, refund to `REFUNDED`); a two-item cart posted to `/api/cart` (2 x $59.99 + 1 x $79.99) showed one row per item and $199.97, mock PayPal asked for 199.97 USD, the order ended `COMPLETED` with both items and was refunded in full; over-budget, both-fields and duplicate requests returned 400 with their messages.
+
+**Limits.** The page has no way to build a multi-item cart yet: the Choose button sends one product, and the keyless mock agent never sends `items` (set recommendation, F22, adds both). The price-change line on the page was checked only by unit test, because mock catalog prices never change. A refund is still for the whole order until F23. The real model has not been asked to use `items`.

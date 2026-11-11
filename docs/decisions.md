@@ -164,3 +164,68 @@ guarantee in code.
   believed. The snapshot captures the capped results in the same pass, because it is written once.
 
 No code was copied.
+
+## F21-F23 Multi-item orders: line items, partial refunds, choosing a set
+
+**Looked at (2026-11-11)**
+- PayPal Orders v2 OpenAPI spec (https://developer.paypal.com/api/orders/v2/schema.json, version 2.36),
+  schemas `item_request`, `amount_with_breakdown`, `amount_breakdown`:
+  - An item requires `name`, `quantity` and `unit_amount` (`{currency_code, value}`).
+  - `name` accepts up to 3000 characters, but "any content beyond 127 characters (including spaces)
+    will be truncated". We cut titles to 127 ourselves, so what we send is what PayPal keeps.
+  - `quantity` is a **string**, pattern `^[1-9][0-9]{0,9}$` (a whole number, at least 1).
+  - `breakdown.item_total` is "Required if the request includes `purchase_units[].items[].unit_amount`"
+    and "Must equal the sum of `(items[].unit_amount * items[].quantity)`". With a breakdown, `amount`
+    must equal `item_total + tax_total + shipping + handling + insurance - discounts`.
+- PayPal Orders v2 error reference (https://developer.paypal.com/api/rest/reference/orders/v2/errors/):
+  create returns 422 `UNPROCESSABLE_ENTITY` with issue `ITEM_TOTAL_MISMATCH` (item total is not the
+  sum of unit amount x quantity), `ITEM_TOTAL_REQUIRED` (items sent without `item_total`) or
+  `AMOUNT_MISMATCH` (amount is not the sum of the breakdown).
+- PayPal Payments v2 OpenAPI spec (https://developer.paypal.com/api/payments/v2/schema.json) and the
+  refund reference (https://developer.paypal.com/api/payments/v2/captures-refund):
+  - "For a full refund, include an empty request body. For a partial refund, include an `amount`
+    object." Without an amount, PayPal refunds "captured amount - previous refunds", so several
+    partial refunds on one capture are allowed and accumulate.
+  - Refund `status` is one of `CANCELLED`, `FAILED`, `PENDING`, `COMPLETED`.
+  - Too large a refund: 422 with issue `REFUND_AMOUNT_EXCEEDED`, "The refund amount must be less than
+    or equal to the capture amount that has not yet been refunded." The error catalogue in the same
+    spec also lists `CAPTURE_FULLY_REFUNDED`, `PARTIAL_REFUND_NOT_ALLOWED` ("Specify an amount equal
+    to the capture amount or omit the `amount` object") and `MAX_NUMBER_OF_REFUNDS_EXCEEDED`.
+  - The "Refund a payment" guide (https://developer.paypal.com/checkout/refund-payment) uses the same
+    `REFUND_AMOUNT_EXCEEDED` and `CAPTURE_FULLY_REFUNDED` names in its negative-testing table.
+- PayPal's official standard-integration sample
+  (https://github.com/paypal-examples/docs-examples, `standard-integration/server/node/server.js`)
+  receives a cart from the browser but ignores it and sends a fixed `"100.00"` with no `items` and no
+  `breakdown`. It shows the body shape only; it is not a line-item reference.
+- Medusa (https://github.com/medusajs/medusa, MIT): the server computes every cart total and the
+  storefront only displays them (https://docs.medusajs.com/resources/storefront-development/cart/totals).
+  A `Refund` record (https://docs.medusajs.com/resources/references/payment/models/Refund) links to a
+  payment and carries an `amount` and an idempotency key; it has no link to line items, so which
+  lines were refunded is tracked on the order side.
+- Choosing one product per item under a total limit is the multiple-choice knapsack problem
+  (https://en.wikipedia.org/wiki/Knapsack_problem). The usual solution is dynamic programming over the
+  budget, which is pseudo-polynomial in the budget in cents.
+
+**Chosen.**
+- **Line items are built from the order row, and checked before sending.** `name` is the title cut to
+  127 characters, `quantity` is `str(quantity)`, every value comes from integer cents through
+  `to_dollars`, and the code refuses to send if the item sum is not the amount. This matches the
+  work order (section 7); the docs confirmed the field names, the string quantity and the 127 limit.
+  The keyless mock raises the same three issue names so a wrong body fails in tests.
+- **Every refund states its amount, one call per line.** The docs allow repeated partial refunds on
+  one capture, which is what refund-by-line needs. Stating the amount also on a single-line order (a
+  "partial" refund of the full amount) is valid per the `PARTIAL_REFUND_NOT_ALLOWED` text. The mock
+  keeps the refunded total per capture and raises `REFUND_AMOUNT_EXCEEDED` beyond it. Like Medusa, the
+  refund record is per amount, and which lines it covers is ours to track: the `refund_id` is stored
+  on the line in the order's `items` snapshot.
+- **Plain enumeration instead of knapsack DP.** At most 6 items with 6 options each is 6^6 = 46,656
+  sets, each a sum of six integers: milliseconds in Python. A DP table over a $300 budget in cents has
+  30,000 columns per item and needs extra bookkeeping to break ties by total cost; it is longer and
+  harder to explain line by line, for no gain at this size. The ceiling of 6 is what keeps
+  enumeration safe, which is why it is enforced in code.
+
+**Known risk, not a conflict.** Some merchant accounts refuse partial refunds
+(`PARTIAL_REFUND_NOT_ALLOWED`). On such an account the second line of a multi-line order could not be
+refunded. Only a real sandbox refund will show whether this applies; it is listed under "Not verified".
+
+No code was copied.

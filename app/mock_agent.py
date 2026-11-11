@@ -83,7 +83,8 @@ def summarize(result: dict) -> str:
         return "Your orders: " + "; ".join(f"#{o['order_id']} {o['status']} {o['amount']}" for o in result["orders"]) + "."
     if "cart_id" in result:
         note = " " + result["price_note"] if result.get("price_note") else ""
-        return (f"Your order summary is ready: {result['quantity']} x {result['title']}, "
+        lines = ", ".join(f"{i['quantity']} x {i['title']}" for i in result["items"])
+        return (f"Your order summary is ready: {lines}, "
                 f"total {result['total']}.{note} Click Confirm to pay on PayPal.")
     return "Done."
 

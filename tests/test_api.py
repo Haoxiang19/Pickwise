@@ -101,3 +101,30 @@ def test_page_states_concierge_simulation_and_trust_cues(client):
     assert "concierge-style simulation" in page and "no real money moves" in page
     assert "Nothing is charged until you approve the payment on PayPal." in page
     assert "Confirm and pay with PayPal" in page and "Ruled out" in page and "Mock PayPal" in page
+
+
+# --- F21 multi-item cart ---
+
+def test_cart_endpoint_with_items_and_field_rules(client):
+    recs = client.post("/api/chat", json={"message": "noise cancelling headphones under $1000"}).json()["recommendations"]
+    cart = client.post("/api/cart", json={"items": [{"product_id": recs[0]["id"], "quantity": 2},
+                                                    {"product_id": recs[1]["id"]}]}).json()
+    assert cart["total_cents"] == recs[0]["price_cents"] * 2 + recs[1]["price_cents"]
+    assert [i["quantity"] for i in cart["items"]] == [2, 1]
+    both = client.post("/api/cart", json={"product_id": recs[0]["id"], "items": [{"product_id": recs[1]["id"]}]})
+    neither = client.post("/api/cart", json={"quantity": 1})
+    assert both.status_code == 400 and neither.status_code == 400
+
+
+def test_full_mock_purchase_of_a_two_item_cart(client):
+    recs = client.post("/api/chat", json={"message": "noise cancelling headphones under $1000"}).json()["recommendations"]
+    cart = client.post("/api/cart", json={"items": [{"product_id": recs[0]["id"], "quantity": 2}, {"product_id": recs[1]["id"]}]}).json()
+    confirm = client.post("/api/confirm", json={"cart_id": cart["cart_id"]}).json()
+    token = confirm["approve_url"].split("token=")[1]
+    r = client.post("/mock-paypal/approve", content=f"token={token}",
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}, follow_redirects=False)
+    client.get(r.headers["location"], follow_redirects=False)
+    order = client.get(f"/api/orders/{confirm['order_id']}").json()
+    assert order["status"] == "COMPLETED"
+    assert order["amount_cents"] == recs[0]["price_cents"] * 2 + recs[1]["price_cents"]
+    assert [(i["title"], i["quantity"]) for i in order["items"]] == [(recs[0]["title"], 2), (recs[1]["title"], 1)]

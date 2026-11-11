@@ -117,8 +117,8 @@ def test_pick_prepares_cart_priced_by_server():
     out = agent.handle_message(s, "noise cancelling headphones under $100")
     second = out["recommendations"][1]
     out = agent.handle_message(s, "I'll take the second one")
-    assert out["cart"]["title"] == second["title"]
-    assert out["cart"]["total_cents"] == second["price_cents"] and out["cart"]["quantity"] == 1
+    assert out["cart"]["items"][0]["title"] == second["title"] and len(out["cart"]["items"]) == 1
+    assert out["cart"]["total_cents"] == second["price_cents"] and out["cart"]["items"][0]["quantity"] == 1
 
 
 def test_prepare_cart_ignores_model_price_and_rejects_unknown_id():
@@ -127,7 +127,7 @@ def test_prepare_cart_ignores_model_price_and_rejects_unknown_id():
     pid = next(iter(s.products))
     ui = {}
     result = json.loads(agent.run_tool_call(s, call("prepare_cart", {"product_id": pid, "price": 0.01}), ui))
-    assert ui["cart"]["unit_price_cents"] == s.products[pid]["price_cents"] != 1
+    assert ui["cart"]["items"][0]["unit_price_cents"] == s.products[pid]["price_cents"] != 1
     result = json.loads(agent.run_tool_call(s, call("prepare_cart", {"product_id": "made-up"}), {}))
     assert "Unknown product" in result["error"]
 
@@ -226,3 +226,26 @@ def test_approximate_budget_reaches_the_cart_check_too():
     over = max(out["recommendations"], key=lambda r: r["price_cents"])
     assert 7000 < over["price_cents"] <= 8400  # a product the strict reading would have refused
     assert "cart" in agent.handle_message(s, f"buy the first")
+
+
+# --- F21 multi-item cart through the agent ---
+
+def test_prepare_cart_with_items_sums_server_prices_and_notes_each_item():
+    s = Session()
+    agent.handle_message(s, "noise cancelling headphones under $1000")
+    a, b = list(s.products)[:2]
+    ui = {}
+    result = json.loads(agent.run_tool_call(s, call("prepare_cart", {"items": [
+        {"product_id": a, "quantity": 2, "price": 1}, {"product_id": b}]}), ui))
+    expected = s.products[a]["price_cents"] * 2 + s.products[b]["price_cents"]
+    assert ui["cart"]["total_cents"] == expected
+    assert [i["quantity"] for i in result["items"]] == [2, 1]
+    assert result["total"] == "$" + agent.to_dollars(expected)
+
+
+def test_prepare_cart_items_with_an_invented_id_is_an_error():
+    s = Session()
+    agent.handle_message(s, "noise cancelling headphones under $1000")
+    pid = next(iter(s.products))
+    result = json.loads(agent.run_tool_call(s, call("prepare_cart", {"items": [{"product_id": pid}, {"product_id": "made-up"}]}), {}))
+    assert "Unknown product" in result["error"] and s.carts == {}

@@ -25,10 +25,12 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Prices are refreshed from the catalog before a cart is priced (free `GET /v1/products/{id}`); a changed price is shown to the user, a vanished or sold-out product refuses the cart.
 - Retrieval asks the catalog for affordable products (`filters.price.max_price`), plus one extra unfiltered search so the ruled-out list still works. An approximate budget ("around $70") is widened by 20% in code and that one figure is used everywhere. New eval row "+ budget filter"; the snapshot captures the capped results in the same pass.
 - F20 'What I remember' panel: list and delete own entries (`GET/DELETE /api/memory`). **M5 done in keyless mode.**
-- State: 169 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- F21 multi-item cart (commit 1 of `docs/multi-item-plan.md`): up to 6 products per cart, server total, budget on the total, `prepare_cart` and `/api/cart` accept `items`, one summary row per item. PayPal still receives the total only. Research for F21-F23 recorded in `docs/decisions.md`.
+- State: 181 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
-- Nothing. M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode. P2 not started.
+- M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode.
+- P2 "multiple items per order": planned as F21 (multi-item cart, PayPal line items), F22 (set recommendation) and F23 (refund by line) in `docs/multi-item-plan.md`. **Commit 1 (F21 multi-item cart) done** in keyless mode. Next: commit 2 (PayPal line items). Follow that file commit by commit and update this entry after each one.
 
 ## Next steps for the owner (in order)
 1. Put keys in `.env` (copy `.env.example`; never commit it): `LLM_*`, `CHANNEL3_API_KEY`, `PAYPAL_CLIENT_ID/SECRET`. For DeepSeek set `LLM_EXTRA_BODY={"thinking": {"type": "disabled"}}`. Note: the app reads environment variables only; it does not load `.env` by itself (no extra dependency). Export them in the shell, or use `uvicorn --env-file .env` (needs the `python-dotenv` package, not installed).
@@ -77,6 +79,7 @@ rolling out, and search results do not carry live per-variant stock.
 ## Not verified (needs real services)
 - No real model call made yet: function calling on DeepSeek, model ID, `usage` field names, ranking JSON quality, whether it saves/uses preferences sensibly, cost of 3 parallel ranking calls.
 - No real Channel3 call: field names and the dollar unit of `offers[].price.price`.
+- The real model has never been asked to call `prepare_cart` with `items` (F21).
 - No real PayPal sandbox call: token, create (`payer-action` link), get, capture, refund are tested only against fakes and the mock. PayPal's real error body shape and the query parameters it appends to return/cancel URLs are not observed.
 - Render deploy, phone-width layout, `secure` cookie behind Render's proxy.
 

@@ -56,11 +56,16 @@ TOOLS = [
     }},
     {"type": "function", "function": {
         "name": "prepare_cart",
-        "description": "Prepare an order summary for one recommended product. It does not charge anything; the user must click Confirm.",
+        "description": "Prepare an order summary for one or more recommended products. It does not charge anything; the user must click Confirm.",
         "parameters": {"type": "object", "properties": {
-            "product_id": {"type": "string", "description": "ID of a product from a recommend result."},
+            "product_id": {"type": "string", "description": "ID of a product from a recommend result, for a one-product order."},
             "quantity": {"type": "integer", "description": "Number of units, default 1."},
-        }, "required": ["product_id"]},
+            "items": {"type": "array", "description": "For several different products in one order, instead of product_id.",
+                      "items": {"type": "object", "properties": {
+                          "product_id": {"type": "string"},
+                          "quantity": {"type": "integer", "description": "Default 1."},
+                      }, "required": ["product_id"]}},
+        }},
     }},
     {"type": "function", "function": {
         "name": "get_orders",
@@ -107,22 +112,36 @@ def tool_recommend(session: Session, args: dict, ui: dict) -> dict:
 
 
 def cart_view(cart: dict) -> dict:
-    """Order summary shown on the page (F8). Every number comes from the server."""
-    item = cart["items"][0]
-    return {"cart_id": cart["id"], "title": item["title"], "quantity": item["quantity"],
-            "unit_price_cents": item["unit_price_cents"], "total_cents": cart["total_cents"],
-            "currency": cart["currency"], "price_was_cents": cart.get("price_was_cents")}
+    """Order summary shown on the page (F8, F21). Every number comes from the server."""
+    return {"cart_id": cart["id"],
+            "items": [{"title": i["title"], "quantity": i["quantity"], "unit_price_cents": i["unit_price_cents"],
+                       "price_was_cents": i.get("price_was_cents")} for i in cart["items"]],
+            "total_cents": cart["total_cents"], "currency": cart["currency"]}
+
+
+def cart_lines(args: dict) -> list:
+    """Turn either form of prepare_cart arguments into (product_id, quantity) lines.
+
+    Only IDs and quantities are read; any price the model might send is ignored.
+    """
+    if args.get("items") is not None:
+        if not isinstance(args["items"], list) or not all(isinstance(i, dict) for i in args["items"]):
+            raise store.CartError("`items` must be a list of {product_id, quantity}.")
+        return [(str(i.get("product_id", "")), i.get("quantity", 1)) for i in args["items"]]
+    return [(str(args.get("product_id", "")), args.get("quantity", 1))]
 
 
 def tool_prepare_cart(session: Session, args: dict, ui: dict) -> dict:
-    # Any price the model might send is ignored; the server re-reads the price from the catalog.
-    cart = store.create_cart(session, str(args.get("product_id", "")), args.get("quantity", 1))
+    cart = store.create_cart_items(session, cart_lines(args))
     ui["cart"] = cart_view(cart)
-    result = {"cart_id": cart["id"], "title": cart["items"][0]["title"], "quantity": cart["items"][0]["quantity"],
+    result = {"cart_id": cart["id"],
+              "items": [{"title": i["title"], "quantity": i["quantity"]} for i in cart["items"]],
               "total": f"${to_dollars(cart['total_cents'])}",
               "next_step": "The user reviews the summary and clicks Confirm to pay."}
-    if cart.get("price_was_cents") is not None:
-        result["price_note"] = f"The price changed from ${to_dollars(cart['price_was_cents'])} since the search."
+    notes = [f"The price of {i['title']} changed from ${to_dollars(i['price_was_cents'])} to "
+             f"${to_dollars(i['unit_price_cents'])} since the search." for i in cart["items"] if "price_was_cents" in i]
+    if notes:
+        result["price_note"] = " ".join(notes)
     return result
 
 
