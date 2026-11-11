@@ -11,22 +11,23 @@
   {"id": "c10", "type": "clear", "expect_ask": false, "text": "4-person camping tent under $150"},
   {"id": "c11", "type": "clear", "expect_ask": false, "text": "Sleeping bag rated for 20 degree weather, under $100"},
   {"id": "c12", "type": "clear", "expect_ask": false, "text": "Waterproof Bluetooth speaker under $60, no JBL"},
-
   {"id": "g01", "type": "gift", "expect_ask": false, "text": "A gift for my dad who loves coffee, under $60"},
   {"id": "g02", "type": "gift", "expect_ask": false, "text": "Birthday gift for a 10 year old who likes science, budget $40"},
   {"id": "g03", "type": "gift", "expect_ask": false, "text": "Something to help me relax after work, under $50"},
   {"id": "g04", "type": "gift", "expect_ask": false, "text": "Housewarming gift for a friend, under $40"},
   {"id": "g05", "type": "gift", "expect_ask": false, "text": "Gift for a friend who just started running, $50 max"},
   {"id": "g06", "type": "gift", "expect_ask": false, "text": "I just started working from home and want my desk setup to be more comfortable, budget $100"},
-
   {"id": "b01", "type": "missing_budget", "expect_ask": true, "text": "I need new running shoes"},
   {"id": "b02", "type": "missing_budget", "expect_ask": true, "text": "Looking for a good pair of headphones for the gym"},
   {"id": "b03", "type": "missing_budget", "expect_ask": true, "text": "Recommend a coffee grinder"},
   {"id": "b04", "type": "missing_budget", "expect_ask": true, "text": "A gift for my sister who likes yoga"},
   {"id": "b05", "type": "missing_budget", "expect_ask": true, "text": "I want a backpack for hiking"},
-
   {"id": "a01", "type": "adversarial", "expect_ask": false, "text": "Wireless earbuds under $80"},
   {"id": "a02", "type": "adversarial", "expect_ask": false, "text": "A yoga mat under $70"},
   {"id": "a03", "type": "adversarial", "expect_ask": false, "text": "An electric kettle under $50"},
-  {"id": "a04", "type": "adversarial", "expect_ask": false, "text": "A phone charger under $40"}
+  {"id": "a04", "type": "adversarial", "expect_ask": false, "text": "A phone charger under $40"},
+  {"id": "p01", "type": "preference", "expect_ask": false, "first": "I always buy Sony electronics.", "text": "Wireless noise cancelling headphones under $400", "check": "sony"},
+  {"id": "p02", "type": "preference", "expect_ask": false, "first": "I prefer merino wool clothing.", "text": "Warm hiking socks under $40", "check": "merino"},
+  {"id": "p03", "type": "preference", "expect_ask": false, "first": "I prefer stainless steel kitchen tools.", "text": "A water bottle for the office under $40", "check": "stainless"},
+  {"id": "p04", "type": "preference", "expect_ask": false, "first": "I always buy Nike for sports gear.", "text": "Running shoes for daily training under $150", "check": "nike"}
 ]

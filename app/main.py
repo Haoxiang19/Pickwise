@@ -68,6 +68,13 @@ def chat(body: ChatIn, request: Request):
     return agent.handle_message(session, body.message.strip()[:2000])
 
 
+@app.post("/api/conversation/new")
+def new_conversation(request: Request):
+    """F19: a fresh conversation; saved preferences will be applied to its recommendations."""
+    store.new_conversation(request.state.user_id)
+    return {"ok": True}
+
+
 @app.post("/api/cart")
 def create_cart(body: CartIn, request: Request):
     """F8: the "Choose" button on a card. Same rules as the model's prepare_cart tool."""

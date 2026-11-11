@@ -31,7 +31,7 @@ def test_reason_comes_from_best_placement():
 
 
 def test_single_ranking_is_unchanged():
-    assert rec.aggregate([r("x", "y")]) == r("x", "y")
+    assert rec.aggregate([r("x", "y")]) == [dict(x, memory=None) for x in r("x", "y")]
 
 
 def candidates(n=8):

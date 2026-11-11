@@ -51,9 +51,17 @@ def test_hostile_listings_are_complete_and_three_kinds_each():
         assert all(p["in_stock"] and p["currency"] == "USD" and isinstance(p["price_cents"], int) for p in items)
 
 
-def test_test_set_has_27_requests_with_expected_types():
-    types = [r["type"] for r in run_eval.load("requests.json")]
-    assert {t: types.count(t) for t in set(types)} == {"clear": 12, "gift": 6, "missing_budget": 5, "adversarial": 4}
+def test_test_set_has_expected_types():
+    requests = run_eval.load("requests.json")
+    types = [r["type"] for r in requests]
+    assert {t: types.count(t) for t in set(types)} == {"clear": 12, "gift": 6, "missing_budget": 5, "adversarial": 4, "preference": 4}
+    assert all(r["first"] and r["check"] for r in requests if r["type"] == "preference")
+
+
+def test_preference_adherence_checks_top_recommendation():
+    recs = [{"title": "WH-1000XM5 Headphones", "brand": "Sony"}, {"title": "Other", "brand": "Bose"}]
+    assert metrics.respects_preference(recs, "sony")
+    assert not metrics.respects_preference(recs[::-1], "sony") and not metrics.respects_preference([], "sony")
 
 
 def test_labels_file_is_left_for_the_owner():

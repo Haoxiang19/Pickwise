@@ -88,6 +88,7 @@ TOOLS = [
 
 def tool_recommend(session: Session, args: dict, ui: dict) -> dict:
     request = rec.parse_request(args)
+    request["memory"] = session.memory_profile or []  # F19: added by the server, never by the model
     result = rec.recommend(request)
     # Remember every searched product: only these IDs may enter a cart, at the server's price.
     session.products.update({p["id"]: p for p in result["products"]})
@@ -202,6 +203,9 @@ def understand(text: str, user_id: str = "") -> dict:
 
 def handle_message(session: Session, text: str) -> dict:
     """Run the agent for one user message. Returns the reply text and data for the page."""
+    if session.memory_profile is None:
+        # F19: the profile is fixed at the start of a conversation; what the user says now overrides it.
+        session.memory_profile = memory.profile(session.user_id)
     session.history.append({"role": "user", "content": text})
     ui = {}
     for _ in range(MAX_TOOL_ROUNDS):

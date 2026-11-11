@@ -94,3 +94,68 @@ def test_remember_tool_errors_go_back_to_the_model():
     s = store.get_session("u1")
     call = {"id": "c", "function": {"name": "remember_preference", "arguments": json.dumps({"text": "x", "about_id": 999})}}
     assert "no saved preference" in json.loads(agent.run_tool_call(s, call, {}))["error"]
+
+
+# --- F19 use ---
+
+def test_profile_is_top_three_positive():
+    for text in ["A", "B", "C", "D"]:
+        memory.remember("u1", f"Prefers {text}")
+    memory.remember("u1", "Prefers D")  # D is strongest now
+    memory.remember("u1", "Dislikes E", stance="contradicts")  # negative, never in the profile
+    assert [p["text"] for p in memory.profile("u1")] == ["Prefers D", "Prefers A", "Prefers B"]
+
+
+def test_memory_reaches_ranker_as_soft_preference_and_reason_names_it(monkeypatch):
+    from app import recommend as rec
+    seen = {}
+
+    def fake_chat(messages, tools=None, temperature=0.0, mock=None):
+        seen["user"] = messages[1]["content"]
+        return {"role": "assistant", "content": '{"ranking": [{"id": "b", "reason": "Sony, as you like.", "memory": "m7"}, '
+                                                '{"id": "a", "reason": "ok", "memory": "m999"}]}'}
+
+    monkeypatch.setattr(rec.llm, "chat", fake_chat)
+    products = [{"id": i, "title": f"Item {i}", "brand": "B", "price_cents": 1000, "currency": "USD", "in_stock": True,
+                 "description": "", "url": "", "image": ""} for i in "abc"]
+    request = rec.parse_request({"raw_request": "x", "budget_usd": 50})
+    request["memory"] = [{"id": 7, "text": "Prefers Sony"}]
+    flags = {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 1, "use_memory": True}
+    out = rec.recommend(request, flags, lambda q, limit: products, seed=1)
+    assert "[m7] Prefers Sony" in seen["user"] and "current request wins" in seen["user"]
+    first, second = out["recommendations"][:2]
+    assert first["reason"] == 'Sony, as you like. Based on what I remember: "Prefers Sony".' and first["memory_used"] == "Prefers Sony"
+    assert second["memory_used"] is None  # unknown memory ID ignored
+
+
+def test_memory_off_hides_profile_and_never_affects_hard_filter(monkeypatch):
+    from app import recommend as rec
+    prompts = []
+
+    def fake_chat(messages, tools=None, temperature=0.0, mock=None):
+        prompts.append(messages[1]["content"])
+        return {"role": "assistant", "content": '{"ranking": [{"id": "cheap"}]}'}
+
+    monkeypatch.setattr(rec.llm, "chat", fake_chat)
+    sony = {"id": "sony", "title": "Sony thing", "brand": "Sony", "price_cents": 9000, "currency": "USD", "in_stock": True,
+            "description": "", "url": "", "image": ""}
+    cheap = dict(sony, id="cheap", brand="Other", title="Other thing", price_cents=1000)
+    request = rec.parse_request({"raw_request": "x", "budget_usd": 50})
+    request["memory"] = [{"id": 1, "text": "Prefers Sony"}]
+    on = rec.recommend(request, {"multi_query": True, "reasoning_rank": True, "use_memory": True}, lambda q, l: [sony, cheap], seed=1)
+    assert [r["id"] for r in on["recommendations"]] == ["cheap"]
+    assert on["rejected"][0]["id"] == "sony" and on["rejected"][0]["kind"] == "over_budget"  # memory cannot lift the budget
+    rec.recommend(request, {"multi_query": True, "reasoning_rank": True, "use_memory": False}, lambda q, l: [sony, cheap], seed=1)
+    assert "Remembered" in prompts[0] and "Remembered" not in prompts[1]
+
+
+def test_new_conversation_uses_saved_preference_in_keyless_mode():
+    s = store.get_session("u1")
+    agent.handle_message(s, "I always buy Soundcore")
+    assert s.memory_profile == []  # this conversation started before the preference existed
+    s = store.new_conversation("u1")
+    out = agent.handle_message(s, "noise cancelling headphones under $100")
+    top = out["recommendations"][0]
+    assert top["brand"] == "Soundcore" and top["memory_used"] == "Prefers Soundcore"
+    assert 'Based on what I remember: "Prefers Soundcore"' in top["reason"]
+    assert s.memory_profile and s.history[0]["content"] == "noise cancelling headphones under $100"

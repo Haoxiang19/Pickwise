@@ -95,3 +95,8 @@ def prompt_block(user_id: str) -> str:
         return "Saved preferences of this user: none."
     lines = [f"- [{p['id']}] {p['strength']:+.2f} {p['text']}" for p in prefs]
     return "Saved preferences of this user ([id] strength text):\n" + "\n".join(lines)
+
+
+def profile(user_id: str) -> list[dict]:
+    """F19: the strongest positive preferences, as given to the ranker at the start of a conversation."""
+    return [{"id": p["id"], "text": p["text"]} for p in list_preferences(user_id) if p["strength"] > 0][:PROFILE_SIZE]

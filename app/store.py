@@ -23,6 +23,7 @@ class Session:
     products: dict = field(default_factory=dict)  # every product returned by a search in this session, by ID
     budget_cents: int | None = None               # budget of the latest request; None means no limit
     carts: dict = field(default_factory=dict)     # cart ID -> cart
+    memory_profile: list | None = None            # F19: strongest saved preferences, loaded at the first message
 
 
 sessions: dict[str, Session] = {}
@@ -31,6 +32,12 @@ sessions: dict[str, Session] = {}
 def get_session(user_id: str) -> Session:
     if user_id not in sessions:
         sessions[user_id] = Session(user_id=user_id)
+    return sessions[user_id]
+
+
+def new_conversation(user_id: str) -> Session:
+    """Start a new conversation: clear history, search results and carts; orders and memory are kept."""
+    sessions[user_id] = Session(user_id=user_id)
     return sessions[user_id]
 
 

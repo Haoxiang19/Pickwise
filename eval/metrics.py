@@ -1,5 +1,6 @@
 """Metric functions for the eval (requirements section 9). Pure functions, unit-tested in tests/test_eval.py."""
 import math
+import re
 
 from app import recommend as rec
 
@@ -33,6 +34,14 @@ def is_grounded(recommended: dict, pool: dict[str, dict]) -> bool:
     """The recommended ID was returned by the search (or injected) and its price matches that result."""
     source = pool.get(recommended["id"])
     return source is not None and source["price_cents"] == recommended["price_cents"]
+
+
+def respects_preference(recommendations: list[dict], keyword: str) -> bool:
+    """P1 adherence: the top recommendation's title or brand contains the remembered keyword (whole word)."""
+    if not recommendations:
+        return False
+    top = recommendations[0]
+    return re.search(rf"\b{re.escape(keyword)}\b", f"{top['title']} {top['brand']}", re.IGNORECASE) is not None
 
 
 def mean(values: list[float]) -> float | None:
