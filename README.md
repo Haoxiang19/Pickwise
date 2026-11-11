@@ -36,6 +36,7 @@ The model can never move money.
 | Money | create PayPal order, capture, refund | HTTP endpoints, only after a user click |
 
 - Prices are computed by the server in integer cents; the model picks products by ID only. Only products returned by a search in the current session can be ordered.
+- Before a cart is priced, the product is read back from the catalog, so the amount charged is a confirmed current price rather than a stored search result. A price that moved is shown to the user; a product that sold out or disappeared cannot be ordered.
 - The budget is checked in code (hard filter and cart), not by the prompt.
 - Before capture the order is read back from PayPal: capture only if it is `APPROVED` and the amount and currency equal the confirmed order. Paid only when the capture status is `COMPLETED`.
 - No double charge: buttons disable on click, local status checks (capture only from `CREATED`, refund only from `COMPLETED`), a lock around money actions, and deterministic `PayPal-Request-Id` values (`create-{cart}`, `capture-{order}`, `refund-{order}`).
@@ -111,7 +112,7 @@ Start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, one worker (se
 - One product per order; full refunds only; no shipping or tax.
 - No login: a random ID in an HttpOnly cookie identifies the user.
 - Product variants (size, colour) are ignored: the agent orders a product, not a specific variant.
-- Prices come from the search results and are held for the 15-minute quote; they are not refreshed from the retailer between the search and the payment.
+- The price is confirmed when the product is chosen, then held for the 15-minute quote; it is not checked again at the moment of payment.
 - Merchant buy links are not shown, so no affiliate commission is earned.
 - The keyless mock agent understands only simple phrasings; it exists so the flow can be demonstrated without keys.
 - The double-charge lock assumes a single worker process.

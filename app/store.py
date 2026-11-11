@@ -1,12 +1,16 @@
 """Sessions and carts in memory; orders in SQLite."""
 import json
+import logging
 import secrets
 import sqlite3
 import time
 from contextlib import closing
 from dataclasses import dataclass, field
 
+from app import catalog
 from app.money import to_dollars
+
+log = logging.getLogger(__name__)
 
 CART_TTL_SECONDS = 15 * 60  # a cart is a price quote valid until the Confirm click
 MAX_QUANTITY = 10
@@ -41,11 +45,29 @@ def new_conversation(user_id: str) -> Session:
     return sessions[user_id]
 
 
-def create_cart(session: Session, product_id: str, quantity: int = 1, now: float | None = None) -> dict:
-    """F8: price a cart on the server. The model only supplies a product ID and a quantity."""
-    product = session.products.get(product_id)
-    if product is None:
+def _refreshed(session: Session, product_id: str, fetch) -> dict:
+    """Read the product back from the catalog and replace the session's stored copy."""
+    try:
+        fresh = (catalog.get_product if fetch is None else fetch)(product_id)
+    except catalog.CatalogError as e:
+        log.warning("price refresh for %s failed: %s", product_id, e)
+        raise CartError("Could not check the current price. Please try again.") from e
+    if fresh is None:
+        raise CartError("That product is no longer available. Please choose another one.")
+    session.products[product_id] = fresh
+    return fresh
+
+
+def create_cart(session: Session, product_id: str, quantity: int = 1, now: float | None = None, fetch=None) -> dict:
+    """F8: price a cart on the server. The model only supplies a product ID and a quantity.
+
+    The price and stock are read back from the catalog first: a search result can be minutes old,
+    and Channel3 asks for both to be refreshed before they are shown. `fetch` is for tests.
+    """
+    cached = session.products.get(product_id)
+    if cached is None:
         raise CartError("Unknown product: only products from a search in this conversation can be ordered.")
+    product = _refreshed(session, product_id, fetch)
     if not product["in_stock"] or product["price_cents"] is None or product["currency"] != "USD":
         raise CartError("That product is not available to order.")
     if not isinstance(quantity, int) or not 1 <= quantity <= MAX_QUANTITY:
@@ -61,6 +83,8 @@ def create_cart(session: Session, product_id: str, quantity: int = 1, now: float
         "currency": "USD",
         "expires_at": (time.time() if now is None else now) + CART_TTL_SECONDS,
     }
+    if isinstance(cached["price_cents"], int) and cached["price_cents"] != product["price_cents"]:
+        cart["price_was_cents"] = cached["price_cents"]  # the page and the agent tell the user it moved
     session.carts[cart["id"]] = cart
     return cart
 

@@ -102,3 +102,20 @@ No code was copied.
 - **`config.country = "US"`** is now sent with the currency, so language and currency inference is deterministic rather than guessed from the caller.
 
 No code was copied.
+
+## F8 Refreshing the price before a cart is priced
+
+**Looked at (2026-11-11)**
+- Channel3 caching guide (https://channel3.mintlify.dev/docs/guides/caching.md): product IDs may be cached indefinitely, but prices, availability and offers must be refreshed before being shown, and offer URLs must not be cached at all.
+- Channel3 product-detail guide (https://channel3.mintlify.dev/docs/guides/product-detail.md): cache `product.id` from a search, then retrieve the product before showing a price or a buy link. Search results may omit live stock.
+- Channel3 pricing (https://channel3.mintlify.dev/docs/pricing.md): `GET /v1/products/{id}` is free, while a search costs one credit.
+- PayPal's own sample server (already recorded under F9-F14) does the opposite for orders: it captures without reading anything back. Our pre-capture check was added for the same reason as this one.
+
+**Chosen.** `store.create_cart` re-reads the product through `catalog.get_product` and prices the cart from that, not from the stored search result. The session's copy is replaced, so the budget check and the order row all use the fresh figure.
+- Refusing rather than falling back on failure: if the catalog cannot be reached, no cart is created and the user is asked to try again. Quoting a price we could not confirm is the one outcome a payment demo should not have, and the HTTP layer has already retried once.
+- A product that is gone (404) or newly out of stock is refused with its own message.
+- A price that moved is not an error: the cart carries `price_was_cents`, and the page and the agent both say the price changed. Silently charging a different number than the card showed would be worse than saying so.
+- The alternative of refreshing inside the two call sites (the agent tool and the Choose endpoint) was rejected: a third call site could forget, and pricing belongs with the other cart rules.
+- Cost: one free call per Choose click. The 15-minute cart quote is unchanged; it now starts from a confirmed price.
+
+No code was copied.

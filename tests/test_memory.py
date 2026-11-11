@@ -49,7 +49,7 @@ def test_completed_purchase_supports_brand_preference():
     s = store.get_session("buyer")
     s.products["p1"] = {"id": "p1", "title": "Mat", "brand": "Gaiam", "price_cents": 2500, "in_stock": True, "currency": "USD"}
     for _ in range(2):
-        cart = store.create_cart(s, "p1")
+        cart = store.create_cart(s, "p1", fetch=s.products.get)
         order = checkout.confirm(s, "buyer", cart["id"], "http://t")
         paypal_mock.approve(order["paypal_order_id"])
         checkout.handle_return("buyer", order["id"])
@@ -60,7 +60,7 @@ def test_completed_purchase_supports_brand_preference():
 def test_failed_payment_writes_no_memory():
     s = store.get_session("buyer")
     s.products["p1"] = {"id": "p1", "title": "Mat", "brand": "Gaiam", "price_cents": 2500, "in_stock": True, "currency": "USD"}
-    order = checkout.confirm(s, "buyer", store.create_cart(s, "p1")["id"], "http://t")
+    order = checkout.confirm(s, "buyer", store.create_cart(s, "p1", fetch=s.products.get)["id"], "http://t")
     checkout.handle_return("buyer", order["id"])  # never approved -> CANCELLED
     assert memory.list_preferences("buyer") == []
 

@@ -8,7 +8,7 @@ from app import checkout, paypal_mock, store
 def setup_cart():
     s = store.Session()
     s.products["p1"] = {"id": "p1", "title": "Mat", "price_cents": 2500, "in_stock": True, "currency": "USD"}
-    return s, store.create_cart(s, "p1")
+    return s, store.create_cart(s, "p1", fetch=s.products.get)
 
 
 def run_in_threads(fn, n=5):
@@ -72,6 +72,6 @@ def test_new_cart_after_cancel_gets_new_order():
     s, cart = setup_cart()
     order = checkout.confirm(s, "u1", cart["id"], "http://t")
     checkout.handle_cancel("u1", order["id"])
-    new_cart = store.create_cart(s, "p1")
+    new_cart = store.create_cart(s, "p1", fetch=s.products.get)
     new_order = checkout.confirm(s, "u1", new_cart["id"], "http://t")
     assert new_order["id"] != order["id"] and new_order["status"] == "CREATED"

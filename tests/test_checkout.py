@@ -8,7 +8,7 @@ BASE = "http://test"
 def session_with_cart(price=2500, quantity=1):
     s = store.Session()
     s.products["p1"] = {"id": "p1", "title": "Mat", "price_cents": price, "in_stock": True, "currency": "USD"}
-    return s, store.create_cart(s, "p1", quantity)
+    return s, store.create_cart(s, "p1", quantity, fetch=s.products.get)
 
 
 # --- F9, F10 Confirm ---

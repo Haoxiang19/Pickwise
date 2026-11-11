@@ -22,8 +22,9 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - F19 memory use: profile (top 3 positive) fixed per conversation, ranker-only soft preference, reason names the memory; New conversation button; eval adds 4 preference requests and the "+ memory" version.
 - Page states the concierge-style simulation (requirements section 1); README drafted with an empty results table.
 - Channel3 compatibility pass against the docs: price field fallback, availability semantics, one retry on 429/5xx, `country` in the request.
+- Prices are refreshed from the catalog before a cart is priced (free `GET /v1/products/{id}`); a changed price is shown to the user, a vanished or sold-out product refuses the cart.
 - F20 'What I remember' panel: list and delete own entries (`GET/DELETE /api/memory`). **M5 done in keyless mode.**
-- State: 152 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- State: 162 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
 - Nothing. M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode. P2 not started.
@@ -33,7 +34,8 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 2. Check Channel3 with one real search, **before building the eval snapshot** (the snapshot stores normalized products, so a mapping bug would be baked into it). Print one raw response and confirm:
    - the price is in dollars, and whether the field is `price.price` or `price.amount` (the code accepts both, but only one should be in use);
    - which `availability` values actually occur (the code treats anything outside `OutOfStock`/`SoldOut`/`PreOrder`/`BackOrder` as buyable and logs unknown values once);
-   - that `brands[0].name`, `images[].is_main_image` and `category.title` are populated.
+   - that `brands[0].name`, `images[].is_main_image` and `category.title` are populated;
+   - what `GET /v1/products/{id}` returns (the product at the top level, or wrapped in `"product"`); the code accepts both.
    Budget: one eval snapshot costs about 130 search credits out of 1,000 free per month, so do not rebuild it casually. There is no test key; every call is billed.
 3. Check DeepSeek function calling with the app: does it ask for the budget, call `recommend` with good queries, keep earlier conditions on refine.
 4. One real sandbox payment with a sandbox personal account (M2 done-criterion). Check: `payer-action` link, read-back status `APPROVED`, capture status, refund status.
@@ -48,7 +50,6 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Render deploy, phone-width layout, `secure` cookie behind Render's proxy.
 
 ## Questions for the owner
-- **Refresh prices before the cart?** Channel3's caching guide says prices and availability must be refreshed before being shown, and `GET /v1/products/{id}` is free. Our cart prices from the session's search cache, up to 15 minutes old. Adding a refresh at cart time would change P0 behaviour, so I did not do it. Worth doing?
 - **Show the merchant buy link?** `offers[].url` is an attributed buy link that earns commission, and Channel3 requires a disclosure near such links on every page. The app currently never shows them, so no disclosure is needed. Keep it that way, or show links and add the disclosure?
 - **Variants (size, colour) are ignored.** Channel3 says variant support is still rolling out and search results omit live per-variant stock. Buying shoes without a size is not realistic; currently listed as a known limitation in the README. OK?
 - **Capture with no answer from PayPal** (network error or HTTP 5xx): requirements say "anything else -> CAPTURE_FAILED". I kept the order `CREATED` with a note and a "Check again" link instead, because the capture may have succeeded at PayPal and "Nothing was charged" could be false. A retry uses the same `capture-{id}` request ID. Please confirm or tell me to switch to `CAPTURE_FAILED`.

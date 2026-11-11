@@ -107,15 +107,20 @@ def cart_view(cart: dict) -> dict:
     """Order summary shown on the page (F8). Every number comes from the server."""
     item = cart["items"][0]
     return {"cart_id": cart["id"], "title": item["title"], "quantity": item["quantity"],
-            "unit_price_cents": item["unit_price_cents"], "total_cents": cart["total_cents"], "currency": cart["currency"]}
+            "unit_price_cents": item["unit_price_cents"], "total_cents": cart["total_cents"],
+            "currency": cart["currency"], "price_was_cents": cart.get("price_was_cents")}
 
 
 def tool_prepare_cart(session: Session, args: dict, ui: dict) -> dict:
-    # Any price the model might send is ignored; the server prices the cart from its search cache.
+    # Any price the model might send is ignored; the server re-reads the price from the catalog.
     cart = store.create_cart(session, str(args.get("product_id", "")), args.get("quantity", 1))
     ui["cart"] = cart_view(cart)
-    return {"cart_id": cart["id"], "title": cart["items"][0]["title"], "quantity": cart["items"][0]["quantity"],
-            "total": f"${to_dollars(cart['total_cents'])}", "next_step": "The user reviews the summary and clicks Confirm to pay."}
+    result = {"cart_id": cart["id"], "title": cart["items"][0]["title"], "quantity": cart["items"][0]["quantity"],
+              "total": f"${to_dollars(cart['total_cents'])}",
+              "next_step": "The user reviews the summary and clicks Confirm to pay."}
+    if cart.get("price_was_cents") is not None:
+        result["price_note"] = f"The price changed from ${to_dollars(cart['price_was_cents'])} since the search."
+    return result
 
 
 def tool_get_orders(session: Session, args: dict, ui: dict) -> dict:

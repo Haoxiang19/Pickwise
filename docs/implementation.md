@@ -106,22 +106,23 @@ What was actually built, one entry per feature. Written after each feature is fi
 
 **What it does.** Turns a chosen product into a cart (a 15-minute price quote) whose items and total are computed by the server in integer cents, and shows it as an order summary.
 
-**Where.** `app/store.py`: `create_cart`, `get_valid_cart`, `CartError`, `Session.carts`. `app/agent.py`: `prepare_cart` tool (`tool_prepare_cart`), `cart_view`. `app/main.py`: `POST /api/cart` (the card's Choose button). `static/index.html`: `showSummary`.
+**Where.** `app/store.py`: `create_cart`, `_refreshed`, `get_valid_cart`, `CartError`, `Session.carts`. `app/catalog.py`: `get_product`. `app/agent.py`: `prepare_cart` tool (`tool_prepare_cart`), `cart_view`. `app/main.py`: `POST /api/cart` (the card's Choose button). `static/index.html`: `showSummary`.
 
 **How it works.**
 1. The model calls `prepare_cart(product_id, quantity)`, or the user clicks Choose on a card, which posts the same two fields.
 2. `create_cart` looks the ID up in `session.products` (only products returned by a search in this session); unknown IDs are refused.
-3. It refuses products that are out of stock, have no price or are not USD, and quantities outside 1-10.
-4. Total = server unit price x quantity, in cents. If the session has a budget and the total is above it, the cart is refused; with no budget the check is skipped.
-5. The cart gets a random ID, a one-item snapshot (product ID, title, unit price, quantity), the total, `USD`, and `expires_at` = now + 15 minutes. `get_valid_cart` (used by Confirm in F9) refuses unknown or expired carts.
-6. Rule errors are `CartError`, shown to the user (HTTP 400) or returned to the model as a tool error.
-7. The page shows product, unit price, quantity and total from the server's response.
+3. The product is then read back from the catalog with the free `catalog.get_product`, because a search result can be minutes old and Channel3 asks for prices and availability to be refreshed before they are shown. The session's copy is replaced by the fresh one. A product that no longer exists, or a catalog failure, refuses the cart rather than quoting an unconfirmed price.
+4. It refuses products that are out of stock, have no price or are not USD, and quantities outside 1-10. These checks run on the refreshed product, so an item that just sold out is caught here.
+5. Total = server unit price x quantity, in cents. When the refreshed price differs from the one the card showed, the cart carries `price_was_cents` and both the page and the agent say so. If the session has a budget and the total is above it, the cart is refused; with no budget the check is skipped.
+6. The cart gets a random ID, a one-item snapshot (product ID, title, unit price, quantity), the total, `USD`, and `expires_at` = now + 15 minutes. `get_valid_cart` (used by Confirm in F9) refuses unknown or expired carts.
+7. Rule errors are `CartError`, shown to the user (HTTP 400) or returned to the model as a tool error.
+8. The page shows product, unit price, quantity and total from the server's response, plus the price-change line when there is one.
 
-**Why.** The model only names a product ID, so it cannot set a price; any price field in its arguments is ignored. Carts are per session, so one user cannot order with another user's search results. The cart is only a quote: Confirm (F9) copies it to the order row, which then becomes the reference.
+**Why.** The model only names a product ID, so it cannot set a price; any price field in its arguments is ignored. Carts are per session, so one user cannot order with another user's search results. The cart is only a quote: Confirm (F9) copies it to the order row, which then becomes the reference. The read-back before quoting mirrors the read-back before capture in F11; both are in `docs/decisions.md`.
 
-**Verified.** `tests/test_store.py`: integer-cent total, unknown ID, quantity bounds and type, unavailable products, budget on the total, no-budget skip, expiry at 15 minutes. `tests/test_agent.py`: "take the second one" prepares the right cart at the server price; a model-supplied price is ignored; an invented ID returns an error. `tests/test_api.py`: Choose endpoint works, and another browser cannot use this session's product. By hand (keyless): "a yoga mat under $120", Choose on the second card shows Lululemon The Mat 5mm, $108.00, quantity 1, total $108.00.
+**Verified.** `tests/test_store.py`: integer-cent total, unknown ID, quantity bounds and type, unavailable products, budget on the total, no-budget skip, expiry at 15 minutes, and for the read-back: the refreshed price is used and recorded as a change, an unchanged price is not reported, a product that sold out or rose over budget is refused, a product that disappeared is refused, a catalog failure refuses the cart instead of quoting a stale price, and the default path calls `catalog.get_product`. `tests/test_catalog.py`: `get_product` from the mock catalog and over HTTP (URL shape, both response envelopes, 404 means gone, retry, error code). `tests/test_agent.py`: "take the second one" prepares the right cart at the server price; a model-supplied price is ignored; an invented ID returns an error. `tests/test_api.py`: Choose endpoint works, and another browser cannot use this session's product. By hand (keyless): "a yoga mat under $120", Choose on the second card shows Lululemon The Mat 5mm, $108.00, quantity 1, total $108.00.
 
-**Limits.** One product per cart (multiple items is P2). Expired carts stay in memory until restart. The quantity can only be changed by asking the agent; the page always sends 1.
+**Limits.** One product per cart (multiple items is P2). Expired carts stay in memory until restart. The quantity can only be changed by asking the agent; the page always sends 1. The read-back costs one free Channel3 call per Choose click and has not been run against the real API, so the response envelope of `GET /v1/products/{id}` is handled defensively; the price is confirmed at Choose but not again at Confirm, so a change during the 15-minute quote is not caught.
 
 ## F9 User confirmation, F10 Create order and redirect (`app/checkout.py`, `app/paypal.py`, `app/paypal_mock.py`, `app/store.py`)
 

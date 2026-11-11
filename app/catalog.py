@@ -10,6 +10,7 @@ import os
 import re
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 
@@ -17,7 +18,8 @@ from app.money import to_cents
 
 log = logging.getLogger(__name__)
 
-CHANNEL3_URL = "https://api.trychannel3.com/v1/search"
+API_BASE = "https://api.trychannel3.com/v1"
+CHANNEL3_URL = f"{API_BASE}/search"
 MOCK_PATH = Path(__file__).with_name("mock_catalog.json")
 STOPWORDS = {"a", "an", "the", "for", "and", "with", "of", "to", "in", "on", "my", "i", "me", "some", "good", "best"}
 RETRY_STATUS = {429, 500, 502, 503, 504}  # Channel3 sends Retry-After on 429 and documents 503 as retryable
@@ -57,26 +59,63 @@ def _error_code(resp: httpx.Response) -> str:
         return ""
 
 
+def _headers() -> dict:
+    return {"x-api-key": os.getenv("CHANNEL3_API_KEY")}
+
+
+def _send(request, what: str, allow_404: bool = False) -> dict | None:
+    """Run one Channel3 request, retrying once on the failures Channel3 documents as temporary."""
+    for attempt in (1, 2):
+        try:
+            resp = request()
+        except httpx.HTTPError as e:
+            raise CatalogError(f"{what} failed: {e}") from e
+        if attempt == 2 or resp.status_code not in RETRY_STATUS:
+            break
+        time.sleep(_retry_after(resp))
+    if allow_404 and resp.status_code == 404:
+        return None
+    if resp.status_code >= 400:
+        raise CatalogError(f"{what} failed: HTTP {resp.status_code} {_error_code(resp)}".strip())
+    try:
+        return resp.json()
+    except ValueError as e:
+        raise CatalogError(f"unexpected {what} response: {e}") from e
+
+
 def _channel3_search(query: str, limit: int) -> list[dict]:
     # The budget is deliberately not sent as a filter: over-budget items must reach the hard filter
     # so the user can see them rejected with a reason.
     body = {"query": query, "limit": limit, "config": {"currency": "USD", "country": "US"}}
-    headers = {"x-api-key": os.getenv("CHANNEL3_API_KEY")}
-    for attempt in (1, 2):
-        try:
-            resp = httpx.post(CHANNEL3_URL, json=body, headers=headers, timeout=30)
-        except httpx.HTTPError as e:
-            raise CatalogError(f"search failed: {e}") from e
-        # One retry only, for the cases Channel3 documents as worth repeating.
-        if attempt == 2 or resp.status_code not in RETRY_STATUS:
-            break
-        time.sleep(_retry_after(resp))
-    if resp.status_code >= 400:
-        raise CatalogError(f"search failed: HTTP {resp.status_code} {_error_code(resp)}".strip())
+    data = _send(lambda: httpx.post(CHANNEL3_URL, json=body, headers=_headers(), timeout=30), "search")
     try:
-        return resp.json()["products"]
-    except (ValueError, KeyError, TypeError) as e:
+        return data["products"]
+    except (KeyError, TypeError) as e:
         raise CatalogError(f"unexpected search response: {e}") from e
+
+
+def _channel3_product(product_id: str) -> dict | None:
+    url = f"{API_BASE}/products/{quote(product_id, safe='')}"
+    data = _send(lambda: httpx.get(url, headers=_headers(), timeout=30), "product lookup", allow_404=True)
+    if data is None:
+        return None
+    # The docs do not show the envelope, so accept the product at the top level or under "product".
+    return data["product"] if isinstance(data.get("product"), dict) else data
+
+
+def _mock_product(product_id: str) -> dict | None:
+    products = json.loads(MOCK_PATH.read_text(encoding="utf-8"))
+    return next((p for p in products if p["id"] == product_id), None)
+
+
+def get_product(product_id: str) -> dict | None:
+    """Read one product back, or None if it no longer exists.
+
+    Channel3 charges nothing for this and asks for prices and availability to be refreshed before
+    they are shown, so a cart is priced from this rather than from the stored search result.
+    """
+    raw = _channel3_product(product_id) if enabled() else _mock_product(product_id)
+    return normalize(raw) if raw else None
 
 
 def _tokens(text: str) -> set[str]:

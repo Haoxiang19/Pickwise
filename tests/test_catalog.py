@@ -163,3 +163,45 @@ def test_network_error_and_unexpected_body_become_catalog_errors(monkeypatch):
     live(monkeypatch, [FakeResp(200, {"unexpected": []})])
     with pytest.raises(catalog.CatalogError, match="unexpected search response"):
         catalog.search("tent")
+
+
+# --- Reading one product back (used to refresh a price before it is charged) ---
+
+def test_get_product_from_the_mock_catalog():
+    p = catalog.get_product("m-hp-01")
+    assert p["title"].startswith("Soundcore Q20") and p["price_cents"] == 5999 and p["in_stock"] is True
+    assert catalog.get_product("not-a-real-id") is None
+
+
+def get_replies(monkeypatch, replies):
+    monkeypatch.setenv("CHANNEL3_API_KEY", "k")
+    monkeypatch.setattr(catalog.time, "sleep", lambda s: None)
+    sent, it = [], iter(replies)
+    def fake_get(url, headers, timeout):
+        sent.append({"url": url, "headers": headers})
+        return next(it)
+    monkeypatch.setattr(catalog.httpx, "get", fake_get)
+    return sent
+
+
+def test_get_product_request_shape_and_envelopes(monkeypatch):
+    raw = {"id": "p 1", "offers": [offer("9.99")]}
+    sent = get_replies(monkeypatch, [FakeResp(200, raw), FakeResp(200, {"product": raw})])
+    for _ in range(2):  # the docs do not show the envelope, so both shapes must work
+        assert catalog.get_product("p 1")["price_cents"] == 999
+    assert sent[0]["url"] == f"{catalog.API_BASE}/products/p%201"
+    assert sent[0]["headers"] == {"x-api-key": "k"}
+
+
+def test_get_product_returns_none_when_it_is_gone(monkeypatch):
+    get_replies(monkeypatch, [FakeResp(404, {"error": {"code": "not_found"}})])
+    assert catalog.get_product("gone") is None
+
+
+def test_get_product_retries_then_reports_the_error(monkeypatch):
+    ok = FakeResp(200, {"id": "p", "offers": [offer(1)]})
+    sent = get_replies(monkeypatch, [FakeResp(429, headers={"Retry-After": "1"}), ok])
+    assert catalog.get_product("p")["price_cents"] == 100 and len(sent) == 2
+    get_replies(monkeypatch, [FakeResp(401, {"error": {"code": "unauthorized"}})])
+    with pytest.raises(catalog.CatalogError, match="unauthorized"):
+        catalog.get_product("p")

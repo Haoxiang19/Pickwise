@@ -101,6 +101,9 @@ function showSummary(cart) {
   row("Unit price", dollars(cart.unit_price_cents));
   row("Quantity", String(cart.quantity));
   row("Total (" + cart.currency + ")", dollars(cart.total_cents), "total");
+  if (cart.price_was_cents != null) {
+    box.appendChild(el("p", "The price changed from " + dollars(cart.price_was_cents) + " since the search. The total above is the current price.", "note"));
+  }
   box.appendChild(el("p", "Nothing is charged until you approve the payment on PayPal.", "note"));
   const pay = box.appendChild(el("button", "Confirm and pay with PayPal"));
   pay.onclick = async () => {
