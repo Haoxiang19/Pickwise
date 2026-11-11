@@ -46,7 +46,7 @@ Read this first in a new session. Updated before every commit. Last update: 2026
    - that `brands[0].name`, `images[].is_main_image` and `category.title` are populated;
    - what `GET /v1/products/{id}` returns (the product at the top level, or wrapped in `"product"`); the code accepts both;
    - whether `offers[].url` and `max_commission_rate` are populated, and how many results carry a `variants` object with a `selected` entry. Both feed the deferred decisions below.
-   Budget: one eval snapshot costs roughly 230 search credits out of 1,000 free per month (each request is searched once per query, once on the raw text, and once per query capped at its budget), so do not rebuild it casually. There is no test key; every call is billed.
+   Budget: one eval snapshot costs roughly 230 search credits. The hackathon promo code `PAYPAL-HACKATHON-2026` gives a key 20,000 free credits, and Channel3 tops it up on request in the #channel3 channel of the PayPal Discord (sponsor page https://paypalaihackathon.devpost.com/details/channel3, read 2026-11-11); without the code the plan is 1,000 per month (each request is searched once per query, once on the raw text, and once per query capped at its budget), so do not rebuild it casually. There is no test key; every call is billed.
 3. Check DeepSeek function calling with the app: does it ask for the budget, call `recommend` with good queries, keep earlier conditions on refine.
 4. One real sandbox payment with a sandbox personal account (M2 done-criterion). Check: `payer-action` link, read-back status `APPROVED`, capture status, refund status. Make it a **two-item** order and refund **one line first, then the other**: that single run checks the line items in the create body (F21) and two refunds with an amount on one capture (F23).
 5. Impeccable design (`/impeccable init`, `craft`, `audit`), then deploy to Render with `APP_BASE_URL` set to the public URL.
@@ -85,6 +85,7 @@ rolling out, and search results do not carry live per-variant stock.
 ## Deferred: a usage cap for a public deploy (owner, 2026-11-11: not now)
 
 `/api/chat` needs no login, so a public Render URL with real keys lets anyone spend Channel3 credits
+(20,000 with the hackathon code, topped up on request, so the real exposure is the model bill)
 and model calls (one set request: up to 12 searches and 18 ranking calls). Not added for now.
 What the official rules (https://paypalaihackathon.devpost.com/rules) say, checked 2026-11-11:
 - Nothing about API usage, rate limits or costs.
