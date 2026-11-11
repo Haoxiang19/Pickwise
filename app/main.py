@@ -90,6 +90,36 @@ def confirm(body: ConfirmIn, request: Request):
     return {"order_id": order["id"], "approve_url": order["approval_url"]}
 
 
+@app.get("/paypal/return")
+def paypal_return(order_id: int, request: Request):
+    """F11: PayPal sends the buyer here after approval. Verify and capture, then show the result page."""
+    try:
+        checkout.handle_return(request.state.user_id, order_id)
+    except checkout.CheckoutError:
+        raise HTTPException(404, "Order not found")
+    # Redirect so a refresh of the result page only reads the order and never captures again.
+    return RedirectResponse(f"/?order_id={order_id}", status_code=303)
+
+
+@app.get("/paypal/cancel")
+def paypal_cancel(order_id: int, request: Request):
+    """F13: PayPal sends the buyer here after Cancel."""
+    try:
+        checkout.handle_cancel(request.state.user_id, order_id)
+    except checkout.CheckoutError:
+        raise HTTPException(404, "Order not found")
+    return RedirectResponse(f"/?order_id={order_id}", status_code=303)
+
+
+@app.get("/api/orders/{order_id}")
+def get_order(order_id: int, request: Request):
+    """F14: the result page reads the stored order; only the owner can see it."""
+    order = store.get_order(order_id, request.state.user_id)
+    if order is None:
+        raise HTTPException(404, "Order not found")
+    return checkout.order_view(order)
+
+
 # --- Mock PayPal approval page, only when no PayPal credentials are set ---
 
 @app.get("/mock-paypal/checkout", response_class=HTMLResponse)

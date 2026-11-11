@@ -58,3 +58,7 @@ def test_channel3_request_shape(monkeypatch):
     assert p["price_cents"] == 150
     assert sent["json"] == {"query": "tent", "limit": 10, "config": {"currency": "USD"}}
     assert sent["headers"] == {"x-api-key": "k"}
+
+
+def test_mock_search_prefers_title_matches():
+    assert catalog.search("water bottle", limit=1)[0]["category"] == "Water Bottles"

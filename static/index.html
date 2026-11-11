@@ -19,6 +19,8 @@
   .summary table { border-collapse: collapse; width: 100%; }
   .summary td { padding: 2px 0; }
   .summary td:last-child { text-align: right; }
+  .result { border-radius: 8px; padding: 12px; margin: 8px 0; border: 2px solid #b00020; background: #fff; }
+  .result.ok { border-color: #1e7e34; }
   .total td { font-weight: 700; border-top: 1px solid #ccc; padding-top: 6px; }
   details { margin: 8px 0; font-size: .9rem; }
   form { display: flex; gap: 8px; position: sticky; bottom: 0; background: #fafafa; padding: 8px 0; }
@@ -59,7 +61,7 @@ function showRecommendations(data) {
   const box = add(el("div"));
   for (const r of data.recommendations || []) {
     const card = box.appendChild(el("div", undefined, "card"));
-    card.appendChild(el("div", r.title + (r.brand ? " · " + r.brand : "")));
+    card.appendChild(el("div", r.title + (r.brand ? " - " + r.brand : "")));
     card.appendChild(el("div", dollars(r.price_cents), "price"));
     card.appendChild(el("div", r.reason));
     const choose = card.appendChild(el("button", "Choose"));
@@ -102,6 +104,20 @@ function showSummary(cart) {
   return box;
 }
 
+// F13, F14: result after returning from PayPal. Only reads the stored order; never captures.
+function showOrder(order) {
+  const box = add(el("div", undefined, "result" + (order.status === "COMPLETED" ? " ok" : "")));
+  box.appendChild(el("strong", order.message));
+  box.appendChild(el("div", `Order #${order.order_id} - ${order.items.map(i => i.quantity + " x " + i.title).join(", ")}`));
+  box.appendChild(el("div", "Total: " + dollars(order.amount_cents) + " " + order.currency));
+  if (order.paypal_order_id) box.appendChild(el("div", "PayPal order ID: " + order.paypal_order_id));
+  box.appendChild(el("div", "Status: " + order.status));
+  if (order.status === "CREATED" && order.paypal_order_id) {
+    const again = box.appendChild(el("a", "Check again"));
+    again.href = "/paypal/return?order_id=" + encodeURIComponent(order.order_id);
+  }
+}
+
 async function send(text) {
   add(el("div", text, "msg user"));
   const data = await api("/api/chat", {message: text});
@@ -119,6 +135,12 @@ document.getElementById("form").addEventListener("submit", async e => {
   try { await send(text); } catch (err) { add(el("div", "Error: " + err.message, "msg bot")); }
   button.disabled = false; input.focus();
 });
+
+const returnedOrder = new URLSearchParams(location.search).get("order_id");
+if (returnedOrder) {
+  api("/api/orders/" + encodeURIComponent(returnedOrder)).then(showOrder)
+    .catch(err => add(el("div", "Error: " + err.message, "msg bot")));
+}
 
 api("/api/status").then(s => {
   const badges = document.getElementById("badges");

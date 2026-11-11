@@ -11,9 +11,10 @@ Read this first in a new session. Updated before every commit.
 - F1 parse request, F2 ask for budget: agent loop, keyless mock agent, /api/chat, minimal page. **M1 done** (in mock mode a request gives 3 recommendations; tests pass).
 - F8 order summary: server-priced cart, 15-minute quote, prepare_cart tool, Choose button.
 - F9 confirm, F10 create PayPal order and redirect (`app/checkout.py`, `app/paypal.py`, `app/paypal_mock.py`, SQLite orders in `app/store.py`).
+- F11 verify then capture, F13 cancel/failure messages, F14 result page.
 
 ## In progress
-- M2: F11+F13+F14 return from PayPal: verify, capture, cancel, messages, result on the page. Then F12 double-charge tests.
+- M2: F12 no double charge: concurrency and repeat tests, implementation note. Then M2 is done in mock mode.
 
 ## Next
 - M2: F8-F14. M3: F7, F15, F16. M4: eval script. (M5 and P2 not planned for this run.)
@@ -24,9 +25,13 @@ Read this first in a new session. Updated before every commit.
 - No real PayPal sandbox call: token, create (`payer-action` link), get, capture, refund are tested only against fakes and the mock.
 
 ## Questions for the owner
-- (none yet)
+- **Capture with no answer from PayPal** (network error or HTTP 5xx): requirements say "anything else -> CAPTURE_FAILED". I kept the order `CREATED` with a note and a "Check again" link instead, because the capture may have succeeded at PayPal and "Nothing was charged" could be false. A retry uses the same `capture-{id}` request ID. Please confirm or tell me to switch to `CAPTURE_FAILED`.
+- **Capture status `PENDING`**: per requirements it becomes `CAPTURE_FAILED` with the message "Payment failed. Nothing was charged." For a real pending capture the money may still move. Kept as specified; the note shows the status. OK?
+- **Order table extras**: added `approval_url` (so a second Confirm returns the same link without calling PayPal) and `note` (the reason shown for a failure). Not in the data section of requirements.
+- **New module `app/checkout.py`** (not in the suggested layout): holds the money flow (confirm, return, cancel, refund) so `main.py` stays thin and the flow is unit-testable.
 
 ## Dev setup
+- Python's default file encoding here is GBK: pass `encoding="utf-8"` in any script that edits files.
 - Tests: `.venv/Scripts/python -m pytest` (temp files go to `.pytest_tmp/`, set in pytest.ini because the system temp dir was not writable here).
 - `uvicorn --reload` did not always pick up changes on this Windows machine; restart the server after edits.
 - Run: `.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000` (`.claude/launch.json` has the same).

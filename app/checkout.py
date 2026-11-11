@@ -4,14 +4,17 @@ Only HTTP endpoints triggered by a user click call these functions; the model ca
 """
 import logging
 import threading
+import time
 
 from app import paypal, store
+from app.money import to_cents
 
 log = logging.getLogger(__name__)
 
 # One worker process (requirements section 10), so one lock is enough to stop a double click
 # from passing the status check twice. PayPal-Request-Id is the second guard.
 LOCK = threading.Lock()
+CAPTURE_WINDOW_SECONDS = 3 * 3600  # PayPal allows capture only within 3 hours of creation
 
 MESSAGES = {
     "CREATED": "Waiting for your approval on PayPal. Nothing has been charged.",
@@ -61,3 +64,84 @@ def confirm(session: store.Session, user_id: str, cart_id: str, base_url: str) -
             raise CheckoutError("Could not start the PayPal payment. Nothing was charged. Please try again.") from e
         store.update_order(order["id"], paypal_order_id=created["id"], approval_url=created["approve_url"])
         return store.get_order(order["id"], user_id)
+
+
+def _fail(order: dict, status: str, note: str = "") -> dict:
+    store.update_order(order["id"], status=status, note=note)
+    return store.get_order(order["id"], order["user_id"])
+
+
+def _record_capture(order: dict, paypal_order: dict) -> dict:
+    """Paid only if purchase_units[0].payments.captures[0].status is COMPLETED; the order status alone is not enough."""
+    units = paypal_order.get("purchase_units") or [{}]
+    captures = (units[0].get("payments") or {}).get("captures") or [{}]
+    capture = captures[0]
+    if capture.get("status") == "COMPLETED":
+        store.update_order(order["id"], status="COMPLETED", capture_id=capture.get("id"), note="")
+        return store.get_order(order["id"], order["user_id"])
+    return _fail(order, "CAPTURE_FAILED", f"PayPal reported the capture as {capture.get('status') or 'missing'}.")
+
+
+def handle_return(user_id: str, order_id: int) -> dict:
+    """F11: the buyer came back from PayPal. Verify the order, then capture. Returns the updated row."""
+    with LOCK:
+        order = store.get_order(order_id, user_id)
+        if order is None:
+            raise CheckoutError("Order not found.")
+        if order["status"] != "CREATED" or not order["paypal_order_id"]:
+            return order  # a refresh after the result: show what is stored, do not call PayPal again
+        if time.time() - order["created_at"] > CAPTURE_WINDOW_SECONDS:
+            return _fail(order, "CAPTURE_FAILED", "The payment window of 3 hours has passed.")
+        # The PayPal order ID comes from our row, never from the return URL's query string.
+        pp_id = order["paypal_order_id"]
+        try:
+            pp = paypal.get_order(pp_id)
+        except paypal.PayPalError as e:
+            log.warning("read back %s failed: %s", pp_id, e)
+            return _keep_for_retry(order)
+        if pp.get("status") == "COMPLETED":
+            return _record_capture(order, pp)  # captured by an earlier attempt whose result we did not store
+        if pp.get("status") != "APPROVED":
+            return _fail(order, "CANCELLED", "The payment was not approved on PayPal.")
+        amount = (pp.get("purchase_units") or [{}])[0].get("amount") or {}
+        try:
+            paypal_cents = to_cents(amount.get("value"))
+        except ValueError:
+            paypal_cents = None
+        if paypal_cents != order["amount_cents"] or amount.get("currency_code") != order["currency"]:
+            return _fail(order, "AMOUNT_MISMATCH")
+        try:
+            return _record_capture(order, paypal.capture_order(pp_id, f"capture-{order['id']}"))
+        except paypal.PayPalError as e:
+            log.warning("capture %s failed: %s", pp_id, e)
+            issue = e.issue
+        if issue == "ORDER_ALREADY_CAPTURED":
+            try:
+                return _record_capture(order, paypal.get_order(pp_id))  # show PayPal's real state
+            except paypal.PayPalError:
+                return _keep_for_retry(order)
+        if issue == "ORDER_NOT_APPROVED":
+            return _fail(order, "CANCELLED", "The payment was not approved on PayPal.")
+        if issue == "INSTRUMENT_DECLINED":
+            return _fail(order, "CAPTURE_FAILED", "Your payment method was declined.")
+        if issue == "NETWORK_ERROR":
+            return _keep_for_retry(order)
+        return _fail(order, "CAPTURE_FAILED", f"PayPal error {issue}.")
+
+
+def _keep_for_retry(order: dict) -> dict:
+    # No answer from PayPal: the outcome is unknown, so the order is not marked failed or paid.
+    # "Check again" on the page revisits the return URL; the same PayPal-Request-Id returns the earlier result.
+    store.update_order(order["id"], note="Could not reach PayPal to confirm the payment.")
+    return store.get_order(order["id"], order["user_id"])
+
+
+def handle_cancel(user_id: str, order_id: int) -> dict:
+    """F13: the buyer cancelled on PayPal. Nothing was captured."""
+    with LOCK:
+        order = store.get_order(order_id, user_id)
+        if order is None:
+            raise CheckoutError("Order not found.")
+        if order["status"] == "CREATED":
+            return _fail(order, "CANCELLED")
+        return order

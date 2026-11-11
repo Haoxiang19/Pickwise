@@ -31,7 +31,7 @@ What was actually built, one entry per feature. Written after each feature is fi
 
 **How it works.**
 1. `search(query, limit=10)` gets raw results from Channel3 (`POST /v1/search` with `{"query", "limit", "config": {"currency": "USD"}}` and the `x-api-key` header) or from the mock, then calls `normalize` on each.
-2. Mock search: lowercase word sets with stopwords removed and a crude plural fold; score = shared words between query and title/description/category/brand; top `limit` by score, catalog order on ties.
+2. Mock search: lowercase word sets with stopwords removed and a crude plural fold; score = 2 x shared words with the title + shared words with description/category/brand; top `limit` by score, catalog order on ties.
 3. `normalize` keeps only USD offers with a parseable `price.price` (read with `Decimal`), picks the cheapest in-stock one. If none is in stock it keeps the cheapest USD offer with `in_stock=False`; with no USD offer at all, `price_cents` and `currency` are `None`. These two cases map to the "out of stock" and "no in-stock USD offer" rejection reasons in F4.
 4. Main image is the one with `is_main_image`, else the first; brand is `brands[0].name`; category is `category.title`.
 5. Channel3 HTTP or parse failures raise `CatalogError`.
@@ -143,3 +143,26 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_checkout.py`: row and PayPal order created with the right amount, URLs and request ID; second Confirm returns the same order; expired and foreign carts refused; PayPal failure keeps the row and retries with the same request ID; non-`CREATED` row refused; orders private per user. `tests/test_paypal.py` (fake HTTP): sandbox base URL constant, create body and headers, `payer-action` link, token cached, capture/refund empty body and request IDs, error issue parsing, missing link. By hand (keyless): request, "take the first one", Confirm, landed on the mock PayPal page showing "Pay 59.99 USD".
 
 **Limits / not verified.** No real sandbox call yet: the `payer-action` link, `PAYER_ACTION_REQUIRED` status and token response are from the docs only. `APP_BASE_URL` must be set on Render so the return URL uses the public host.
+
+## F11 Verify, then capture; F13 Cancel and failure messages; F14 Success page (`app/checkout.py`, `app/main.py`)
+
+**What it does.** When the buyer returns from PayPal, the server reads the order back, captures only if it is `APPROVED` with the same amount and currency as the order row, and records the result; cancel and every failure say nothing was charged; the page shows the stored result and order ID.
+
+**Where.** `app/checkout.py`: `handle_return`, `handle_cancel`, `_record_capture`, `_fail`, `_keep_for_retry`, `MESSAGES`, `order_view`, `CAPTURE_WINDOW_SECONDS`. `app/main.py`: `GET /paypal/return`, `GET /paypal/cancel`, `GET /api/orders/{id}`. `static/index.html`: `showOrder`.
+
+**How it works.**
+1. PayPal redirects to `/paypal/return?order_id=<local id>` (PayPal's own `token`/`PayerID` parameters are ignored). The row is loaded by local ID **and** the cookie's user; another user gets 404.
+2. Under `checkout.LOCK`: a row that is not `CREATED` (or has no PayPal ID) is returned unchanged, so a refresh never calls PayPal again.
+3. Older than 3 hours: `CAPTURE_FAILED` without calling PayPal.
+4. `GET` the PayPal order using the ID stored on the row. If it is already `COMPLETED`, the capture inside it is recorded. If it is not `APPROVED`: `CANCELLED`.
+5. Amount check: `to_cents(purchase_units[0].amount.value)` (Decimal) and `currency_code` must equal the row; otherwise `AMOUNT_MISMATCH` and no capture.
+6. Capture with `PayPal-Request-Id: capture-{order_id}`. Paid (`COMPLETED`, `capture_id` stored) only if `purchase_units[0].payments.captures[0].status == "COMPLETED"`; any other capture status is `CAPTURE_FAILED`.
+7. Capture errors: `ORDER_ALREADY_CAPTURED` reads the order back and records its real state; `ORDER_NOT_APPROVED` is `CANCELLED`; `INSTRUMENT_DECLINED` and anything else are `CAPTURE_FAILED` with a note. No response (network error or 5xx) keeps the row `CREATED` with a note, and the page shows "Check again", which revisits the return URL with the same request ID.
+8. `/paypal/cancel` marks a `CREATED` row `CANCELLED`; other states are left alone.
+9. Both endpoints redirect (303) to `/?order_id=<id>`; the page calls `GET /api/orders/{id}` and shows the message, items, total, PayPal order ID and status. Refreshing that page only reads.
+
+**Why.** The read-back check is this project's addition to PayPal's sample flow (see `docs/decisions.md`, F9-F14). The redirect after capture separates the action URL from the result URL. Keeping an unanswered capture as `CREATED` instead of `CAPTURE_FAILED` avoids telling a buyer "nothing was charged" when PayPal may have captured (listed as a question in `docs/progress.md`).
+
+**Verified.** `tests/test_checkout.py`: capture after approval with the right request ID; refresh does not call PayPal; not approved means cancelled without capture; four amount/currency mismatch cases; error mapping for declined, not approved and unknown issues; `PENDING` capture is not paid; already-captured reads back; `COMPLETED` on read-back recorded without capture; network error then retry succeeds; 3-hour window; cancel only from `CREATED`; another user cannot return or cancel. `tests/test_api.py`: full mock purchase (a forged PayPal ID in the return URL is ignored) and cancel flow with privacy. By hand (keyless): French press, Confirm, Approve, result "Payment successful. Order #2, $39.95, PayPal order ID MOCK-..., COMPLETED"; water bottle request, Confirm, Cancel, result "Payment cancelled. Nothing was charged."
+
+**Limits / not verified.** Not run against the sandbox: that an approved order reads back as `APPROVED`, the real error body shape, and other capture statuses are from the docs. A `PENDING` capture is shown as failed with "Nothing was charged", which may be wrong for a real pending capture (question in `docs/progress.md`). If the server restarts, orders are lost (Render free tier).

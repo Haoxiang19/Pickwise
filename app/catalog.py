@@ -56,8 +56,9 @@ def _mock_search(query: str, limit: int) -> list[dict]:
     q = _tokens(query)
     scored = []
     for p in products:
-        text = " ".join([p["title"], p["description"], p["category"]["title"], p["brands"][0]["name"]])
-        score = len(q & _tokens(text))
+        other = " ".join([p["description"], p["category"]["title"], p["brands"][0]["name"]])
+        # Title words count double, so "water bottle" ranks a bottle above a backpack with a bottle pocket.
+        score = 2 * len(q & _tokens(p["title"])) + len(q & _tokens(other))
         if score:
             scored.append((score, p))
     scored.sort(key=lambda sp: -sp[0])  # stable sort keeps catalog order on ties
