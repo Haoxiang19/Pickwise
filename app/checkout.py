@@ -55,7 +55,7 @@ def confirm(session: store.Session, user_id: str, cart_id: str, base_url: str) -
             return order
         try:
             created = paypal.create_order(
-                order["amount_cents"], order["currency"], request_id=f"create-{cart_id}",
+                order["amount_cents"], order["currency"], items=order["items"], request_id=f"create-{cart_id}",
                 return_url=f"{base_url}/paypal/return?order_id={order['id']}",
                 cancel_url=f"{base_url}/paypal/cancel?order_id={order['id']}")
         except paypal.PayPalError as e:

@@ -19,11 +19,29 @@ def test_confirm_creates_row_then_paypal_order():
     assert order["status"] == "CREATED" and order["amount_cents"] == 3998 and order["currency"] == "USD"
     assert order["items"] == cart["items"] and order["cart_id"] == cart["id"]
     pp = paypal_mock.orders[order["paypal_order_id"]]
-    assert pp["purchase_units"][0]["amount"] == {"currency_code": "USD", "value": "39.98"}
+    assert pp["purchase_units"][0]["amount"] == {"currency_code": "USD", "value": "39.98",
+                                                 "breakdown": {"item_total": {"currency_code": "USD", "value": "39.98"}}}
+    # F21: PayPal receives the order row's items as line items.
+    assert pp["purchase_units"][0]["items"] == [
+        {"name": "Mat", "quantity": "2", "unit_amount": {"currency_code": "USD", "value": "19.99"}}]
     assert paypal_mock.urls[pp["id"]] == {"return_url": f"{BASE}/paypal/return?order_id={order['id']}",
                                          "cancel_url": f"{BASE}/paypal/cancel?order_id={order['id']}"}
     assert f"create-{cart['id']}" in paypal_mock.responses
     assert order["approval_url"].startswith("/mock-paypal/checkout?token=")
+
+
+def test_confirm_sends_the_order_rows_items_for_a_two_item_cart(monkeypatch):
+    s = store.Session()
+    for pid, price in (("a", 1500), ("b", 250)):
+        s.products[pid] = {"id": pid, "title": pid.upper(), "price_cents": price, "in_stock": True, "currency": "USD"}
+    cart = store.create_cart_items(s, [("a", 1), ("b", 4)], fetch=s.products.get)
+    sent = []
+    real = checkout.paypal.create_order
+    monkeypatch.setattr(checkout.paypal, "create_order", lambda *a, **kw: sent.append(kw) or real(*a, **kw))
+    order = checkout.confirm(s, "u1", cart["id"], BASE)
+    assert sent[0]["items"] == order["items"] and order["amount_cents"] == 2500
+    pp = paypal_mock.orders[order["paypal_order_id"]]["purchase_units"][0]
+    assert [(i["name"], i["quantity"]) for i in pp["items"]] == [("A", "1"), ("B", "4")]
 
 
 def test_second_confirm_returns_same_order_and_link():

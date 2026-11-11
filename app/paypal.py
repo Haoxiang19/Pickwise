@@ -13,6 +13,7 @@ from app.money import to_dollars
 
 # Hard-coded on purpose: this app must never be pointed at live PayPal. Not configurable.
 BASE_URL = "https://api-m.sandbox.paypal.com"
+ITEM_NAME_MAX = 127  # PayPal accepts longer names but truncates them to 127 characters
 
 _token = {"value": None, "expires_at": 0.0}
 
@@ -62,11 +63,26 @@ def _call(method: str, path: str, request_id: str | None = None, body: dict | No
     return data
 
 
-def create_order(amount_cents: int, currency: str, request_id: str, return_url: str, cancel_url: str) -> dict:
-    """Create an order; return {"id", "approve_url"}. The buyer is redirected to the payer-action link."""
+def create_order(amount_cents: int, currency: str, items: list, request_id: str, return_url: str, cancel_url: str) -> dict:
+    """Create an order with one line item per product; return {"id", "approve_url"}.
+
+    `items` is the order row's snapshot. The buyer is redirected to the payer-action link.
+    """
+    # There is no tax or shipping, so the item total must equal the amount. Check before sending,
+    # so a wrong order is never created at PayPal (PayPal would answer ITEM_TOTAL_MISMATCH).
+    item_total = sum(i["unit_price_cents"] * i["quantity"] for i in items)
+    if not items or item_total != amount_cents:
+        raise PayPalError("ITEM_TOTAL_MISMATCH", f"items add up to {item_total} cents, order amount is {amount_cents}")
     body = {
         "intent": "CAPTURE",
-        "purchase_units": [{"amount": {"currency_code": currency, "value": to_dollars(amount_cents)}}],
+        "purchase_units": [{
+            "amount": {"currency_code": currency, "value": to_dollars(amount_cents),
+                       "breakdown": {"item_total": {"currency_code": currency, "value": to_dollars(item_total)}}},
+            "items": [{"name": i["title"][:ITEM_NAME_MAX],
+                       "quantity": str(i["quantity"]),  # PayPal's schema types quantity as a string
+                       "unit_amount": {"currency_code": currency, "value": to_dollars(i["unit_price_cents"])}}
+                      for i in items],
+        }],
         "payment_source": {"paypal": {"experience_context": {
             "return_url": return_url, "cancel_url": cancel_url,
             "user_action": "PAY_NOW", "shipping_preference": "NO_SHIPPING",

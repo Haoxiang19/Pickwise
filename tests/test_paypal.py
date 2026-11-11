@@ -48,12 +48,13 @@ def test_base_url_is_sandbox_constant():
 def test_create_order_request_and_payer_action_link(live):
     live["replies"].append(Resp(200, {"id": "PP1", "status": "PAYER_ACTION_REQUIRED",
                                       "links": [{"rel": "self", "href": "x"}, {"rel": "payer-action", "href": "https://pay"}]}))
-    out = paypal.create_order(1234, "USD", "create-cart_1", "https://app/r", "https://app/c")
+    out = paypal.create_order(1234, "USD", [item(1234)], "create-cart_1", "https://app/r", "https://app/c")
     assert out == {"id": "PP1", "approve_url": "https://pay"}
     req = live["requests"][0]
     assert req["url"] == "https://api-m.sandbox.paypal.com/v2/checkout/orders"
     assert req["headers"]["PayPal-Request-Id"] == "create-cart_1" and req["headers"]["Authorization"] == "Bearer tok"
-    assert req["json"]["purchase_units"][0]["amount"] == {"currency_code": "USD", "value": "12.34"}
+    assert req["json"]["purchase_units"][0]["amount"] == {
+        "currency_code": "USD", "value": "12.34", "breakdown": {"item_total": {"currency_code": "USD", "value": "12.34"}}}
     ctx = req["json"]["payment_source"]["paypal"]["experience_context"]
     assert ctx == {"return_url": "https://app/r", "cancel_url": "https://app/c",
                    "user_action": "PAY_NOW", "shipping_preference": "NO_SHIPPING"}
@@ -92,4 +93,56 @@ def test_errors_carry_paypal_issue(live):
 def test_missing_payer_action_link_is_an_error(live):
     live["replies"].append(Resp(200, {"id": "PP1", "links": [{"rel": "approve", "href": "x"}]}))
     with pytest.raises(paypal.PayPalError, match="NO_APPROVAL_LINK"):
-        paypal.create_order(100, "USD", "r", "a", "b")
+        paypal.create_order(100, "USD", [item(100)], "r", "a", "b")
+
+
+# --- F21 line items in the create body ---
+
+def item(unit_cents, quantity=1, title="Mat"):
+    return {"product_id": "p", "title": title, "unit_price_cents": unit_cents, "quantity": quantity}
+
+
+def ok_reply():
+    return Resp(200, {"id": "PP1", "links": [{"rel": "payer-action", "href": "https://pay"}]})
+
+
+def test_create_body_for_a_two_item_order(live):
+    live["replies"].append(ok_reply())
+    paypal.create_order(5997, "USD", [item(1999, 2, "Tent"), item(1999, 1, "Lamp")], "r", "a", "b")
+    unit = live["requests"][0]["json"]["purchase_units"][0]
+    assert unit["amount"]["value"] == "59.97" and unit["amount"]["breakdown"]["item_total"]["value"] == "59.97"
+    assert unit["items"] == [
+        {"name": "Tent", "quantity": "2", "unit_amount": {"currency_code": "USD", "value": "19.99"}},
+        {"name": "Lamp", "quantity": "1", "unit_amount": {"currency_code": "USD", "value": "19.99"}},
+    ]
+    assert all(isinstance(i["quantity"], str) for i in unit["items"])
+
+
+def test_long_title_is_cut_to_paypal_limit(live):
+    live["replies"].append(ok_reply())
+    paypal.create_order(100, "USD", [item(100, title="x" * 300)], "r", "a", "b")
+    assert len(live["requests"][0]["json"]["purchase_units"][0]["items"][0]["name"]) == paypal.ITEM_NAME_MAX == 127
+
+
+@pytest.mark.parametrize("items", [[item(1000, 3)], [item(1000), item(999)], []])
+def test_sum_mismatch_sends_nothing(live, items):
+    with pytest.raises(paypal.PayPalError) as e:
+        paypal.create_order(2000, "USD", items, "r", "a", "b")
+    assert e.value.issue == "ITEM_TOTAL_MISMATCH" and live["requests"] == []
+
+
+def test_mock_rejects_bodies_that_break_the_sum_rules():
+    from app import paypal_mock
+    ctx = {"paypal": {"experience_context": {"return_url": "r", "cancel_url": "c"}}}
+    usd = lambda v: {"currency_code": "USD", "value": v}
+    line = {"name": "Mat", "quantity": "2", "unit_amount": usd("5.00")}
+    cases = {
+        "ITEM_TOTAL_REQUIRED": {"amount": usd("10.00"), "items": [line]},
+        "ITEM_TOTAL_MISMATCH": {"amount": {**usd("9.00"), "breakdown": {"item_total": usd("9.00")}}, "items": [line]},
+        "AMOUNT_MISMATCH": {"amount": {**usd("12.00"), "breakdown": {"item_total": usd("10.00")}}, "items": [line]},
+    }
+    for issue, unit in cases.items():
+        with pytest.raises(paypal.PayPalError) as e:
+            paypal_mock.create_order({"purchase_units": [unit], "payment_source": ctx}, "req-" + issue)
+        assert e.value.issue == issue
+    assert paypal_mock.orders == {}

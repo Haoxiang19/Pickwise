@@ -7,6 +7,8 @@ The approval page is served by main.py at /mock-paypal/checkout.
 import copy
 import secrets
 
+from app.money import to_cents
+
 orders: dict[str, dict] = {}     # PayPal order ID -> order JSON
 urls: dict[str, dict] = {}       # PayPal order ID -> {"return_url", "cancel_url"}
 responses: dict[str, dict] = {}  # PayPal-Request-Id -> earlier response
@@ -17,9 +19,22 @@ def _error(issue: str):
     return PayPalError(issue, "mock PayPal")
 
 
+def _check_item_totals(unit: dict) -> None:
+    """The sum rules the Orders v2 docs state for items and breakdown, with their 422 issue names."""
+    amount, items = unit["amount"], unit.get("items") or []
+    item_total = (amount.get("breakdown") or {}).get("item_total")
+    if items and item_total is None:
+        raise _error("ITEM_TOTAL_REQUIRED")
+    if items and to_cents(item_total["value"]) != sum(to_cents(i["unit_amount"]["value"]) * int(i["quantity"]) for i in items):
+        raise _error("ITEM_TOTAL_MISMATCH")
+    if item_total is not None and to_cents(amount["value"]) != to_cents(item_total["value"]):
+        raise _error("AMOUNT_MISMATCH")  # no tax, shipping or discount in this app
+
+
 def create_order(body: dict, request_id: str) -> dict:
     if request_id in responses:
         return copy.deepcopy(responses[request_id])
+    _check_item_totals(body["purchase_units"][0])
     order_id = "MOCK-" + secrets.token_hex(6).upper()
     context = body["payment_source"]["paypal"]["experience_context"]
     urls[order_id] = {"return_url": context["return_url"], "cancel_url": context["cancel_url"]}

@@ -187,6 +187,7 @@ Notes from the PayPal docs:
 - The return and cancel URLs go in `payment_source.paypal.experience_context`, together with `user_action: "PAY_NOW"` and `shipping_preference: "NO_SHIPPING"`.
 - With `payment_source` in the create request, the response status is `PAYER_ACTION_REQUIRED` and the link to redirect the buyer to has `rel: "payer-action"`. The `approve` link belongs to a different flow and is not present here.
 - `PayPal-Request-Id` is required on create in this flow; without it PayPal returns `PAYPAL_REQUEST_ID_REQUIRED`.
+- The create request carries one entry per product in `purchase_units[0].items` (`name`, `quantity` as a string, `unit_amount`) and `amount.breakdown.item_total`, which must equal the sum of unit amount x quantity; with no tax or shipping it also equals `amount.value`. PayPal truncates `name` after 127 characters. Errors: `ITEM_TOTAL_MISMATCH`, `ITEM_TOTAL_REQUIRED`, `AMOUNT_MISMATCH` (F21).
 - Capture is sent with an empty JSON body `{}`. The capture ID and capture status are in `purchase_units[0].payments.captures[0]`.
 - A full refund is sent with an empty JSON body `{}`.
 - The access token call uses Basic auth with the client ID and secret, and the body `grant_type=client_credentials`.
@@ -217,6 +218,7 @@ Notes from the Channel3 docs:
 - The query parameters PayPal appends to `return_url` and `cancel_url`. The docs pages read do not list them, which is why the local order ID is put in the URL by this project.
 - That a PayPal order reads back as `APPROVED` after the buyer approves, and which values a capture status can take besides `COMPLETED`.
 - The sandbox merchant account's country is set to the US; payments use a sandbox personal test account.
+- That the sandbox accepts the create request with line items and `item_total` (F21).
 
 ## 9. Evaluation
 
