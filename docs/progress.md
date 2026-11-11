@@ -82,6 +82,21 @@ rolling out, and search results do not carry live per-variant stock.
   the order row and the PayPal amount would all have to key on the variant instead of the product,
   which is P0 payment behaviour.
 
+## Deferred: a usage cap for a public deploy (owner, 2026-11-11: not now)
+
+`/api/chat` needs no login, so a public Render URL with real keys lets anyone spend Channel3 credits
+and model calls (one set request: up to 12 searches and 18 ranking calls). Not added for now.
+What the official rules (https://paypalaihackathon.devpost.com/rules) say, checked 2026-11-11:
+- Nothing about API usage, rate limits or costs.
+- Deploying is optional: setup instructions in the repo OR a hosted demo URL; judges must be able to
+  run or use a working build. Judges may also judge from the description and video alone.
+- A provided demo must stay available "free of charge and without any restriction" until the judging
+  period ends: **Dec 15, 2026, 8:00 am PT**. Judging runs Dec 1-15.
+- Testing instructions should include any credentials or API keys needed; ours stay in Render's
+  environment variables, never in the repo.
+If a cap is added before deploying: degrade to the labelled mock when a daily total is reached, never
+refuse the request, so a judge can always finish the flow (refusing would break "without any restriction").
+
 ## Not verified (needs real services)
 - No real model call made yet: function calling on DeepSeek, model ID, `usage` field names, ranking JSON quality, whether it saves/uses preferences sensibly, cost of 3 parallel ranking calls.
 - No real Channel3 call: field names and the dollar unit of `offers[].price.price`.
