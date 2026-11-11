@@ -7,6 +7,7 @@
 <style>
   body { font-family: system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 16px; color: #1a1a1a; background: #fafafa; }
   h1 { font-size: 1.3rem; margin: 0 0 8px; }
+  .sim { font-size: .85rem; color: #555; margin: 0 0 8px; }
   .badge { display: inline-block; font-size: .75rem; padding: 2px 8px; margin: 0 4px 4px 0; border-radius: 10px; background: #fff3cd; border: 1px solid #e0c060; }
   #log { margin: 12px 0; }
   .msg { padding: 8px 12px; margin: 8px 0; border-radius: 8px; white-space: pre-wrap; }
@@ -34,6 +35,8 @@
 </head>
 <body>
 <h1>Shopping Agent</h1>
+<p class="sim">Demo: products come from outside retailers, but payment goes to this project's own PayPal sandbox
+merchant account. Orders are a concierge-style simulation: no real money moves and nothing ships.</p>
 <div id="badges"></div>
 <button id="new-chat" type="button">New conversation</button>
 <details id="memory"><summary>What I remember</summary><ul id="memory-list"></ul></details>

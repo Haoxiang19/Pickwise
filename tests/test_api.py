@@ -94,3 +94,10 @@ def test_refund_endpoint_after_purchase(client):
     assert done["status"] == "REFUNDED"
     again = client.post(f"/api/orders/{confirm['order_id']}/refund")
     assert again.status_code == 400 and "already refunded" in again.json()["detail"]
+
+
+def test_page_states_concierge_simulation_and_trust_cues(client):
+    page = client.get("/").text
+    assert "concierge-style simulation" in page and "no real money moves" in page
+    assert "Nothing is charged until you approve the payment on PayPal." in page
+    assert "Confirm and pay with PayPal" in page and "Ruled out" in page and "Mock PayPal" in page
