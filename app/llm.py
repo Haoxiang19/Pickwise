@@ -7,6 +7,7 @@ With no key, callers supply a rule-based `mock` that returns a message of the sa
 import json
 import logging
 import os
+import threading
 
 import httpx
 
@@ -16,6 +17,7 @@ DEFAULT_TEMPERATURE = 0.0  # used by every call in this app; the eval records it
 
 # Token counts for cost reporting in the eval. Shared by the process; the eval runs one request at a time.
 usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+_usage_lock = threading.Lock()  # multi-shuffle ranking (F17) calls the model from several threads
 
 
 class LLMError(Exception):
@@ -47,7 +49,8 @@ def chat(messages: list[dict], tools: list[dict] | None = None, temperature: flo
 
     `mock(messages)` is used when no key is configured. Raises LLMError on any failure.
     """
-    usage["calls"] += 1
+    with _usage_lock:
+        usage["calls"] += 1
     if not enabled():
         if mock is None:
             raise LLMError("no LLM_API_KEY and no mock given")
@@ -69,8 +72,9 @@ def chat(messages: list[dict], tools: list[dict] | None = None, temperature: flo
 
     # A missing usage field is recorded as 0 instead of failing the request.
     u = data.get("usage") or {}
-    usage["prompt_tokens"] += u.get("prompt_tokens") or 0
-    usage["completion_tokens"] += u.get("completion_tokens") or 0
+    with _usage_lock:
+        usage["prompt_tokens"] += u.get("prompt_tokens") or 0
+        usage["completion_tokens"] += u.get("completion_tokens") or 0
     return message
 
 

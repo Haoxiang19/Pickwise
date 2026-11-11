@@ -17,10 +17,11 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - F15 order status (`get_orders` read-only tool, filtered by the cookie user).
 - F16 refund (`draft_refund` proposal tool + Confirm refund endpoint). **M3 features done**; page design (Impeccable) and Render deploy not done (need the owner).
 - M4 eval script: `eval/run_eval.py`, `eval/metrics.py`, 27 test requests, 12 hostile listings, empty `labels.json`. Ran in keyless mode only (mock numbers, not results).
-- State: 111 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund.
+- F17 multi-shuffle ranking (3 shuffles in parallel, mean rank, unlisted = 7); eval row "+ multi-shuffle".
+- State: 118 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund.
 
 ## In progress
-- Nothing. This run stopped at the end of M4 as instructed (no M5, no P2).
+- M5 (owner approved on 2026-11-11): F17 done; next F18 memory write, F19 memory use + eval pair, F20 view/delete panel.
 
 ## Next steps for the owner (in order)
 1. Put keys in `.env` (copy `.env.example`; never commit it): `LLM_*`, `CHANNEL3_API_KEY`, `PAYPAL_CLIENT_ID/SECRET`. For DeepSeek set `LLM_EXTRA_BODY={"thinking": {"type": "disabled"}}`. Note: the app reads environment variables only; it does not load `.env` by itself (no extra dependency). Export them in the shell, or use `uvicorn --env-file .env` (needs the `python-dotenv` package, not installed).
@@ -45,6 +46,7 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - **Eval run logs** (`eval/runs/`) are git-ignored. Commit the real run's logs as evidence for the README numbers?
 - **Order table extras**: added `approval_url` (so a second Confirm returns the same link without calling PayPal) and `note` (the reason shown for a failure). Not in the data section of requirements.
 - **New modules not in the suggested layout**: `app/checkout.py` (money flow: confirm, return, cancel, refund, so `main.py` stays thin and the flow is unit-testable), `app/money.py` (cents helpers), `app/paypal_mock.py` and `app/mock_agent.py` (keyless stand-ins kept out of the real code paths).
+- **App default for `rank_shuffles` is 3** (so the app uses F17 by default, 3x ranking cost). Set to 1 for cheaper demos?
 - **Budget question is a prompt rule only** (F2). Code does not stop the model from searching without a budget; ask accuracy in the eval measures it. Add a code guard?
 
 ## Dev setup

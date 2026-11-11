@@ -72,7 +72,7 @@ What was actually built, one entry per feature. Written after each feature is fi
 3. The model writes a short analysis, then one line `{"ranking": [{"id", "reason"}]}`.
 4. `parse_ranking` reads the last `{"ranking"` JSON with `raw_decode`, drops unknown and repeated IDs, keeps at most 6, and raises `ValueError` on a blank reply, bad JSON or no valid ID. `llm.ask` retries once, then falls back to search order.
 5. `pick_top3`: with 3 or more queries, walk the ranking taking at most one product per source query; fill the remaining places in rank order, then in search order if fewer than 3 were ranked.
-6. `recommend(request, flags, search_fn, seed)` runs search, filter, rank (skipped when `reasoning_rank` is off, which means search order), pick, and builds each recommendation (ID, title, brand, price in cents, URL, image, reason; a default reason names the source query). If fewer than 3 remain, `note` says how many were removed, grouped by reason, and suggests a change. One log line records queries, seed, candidates, rejections, ranking and picks.
+6. `recommend(request, flags, search_fn, seed)` runs search, filter, rank (skipped when `reasoning_rank` is off, which means search order; with `rank_shuffles` > 1 it is the F17 multi-shuffle rank), pick, and builds each recommendation (ID, title, brand, price in cents, URL, image, reason; a default reason names the source query). If fewer than 3 remain, `note` says how many were removed, grouped by reason, and suggests a change. One log line records queries, seed, candidates, rejections, ranking and picks.
 7. Keyless mode: the mock reply is search order in the same JSON format, so `parse_ranking` still runs.
 
 **Why.** Reasoning before ranking follows BracketRank (appendix A); shuffling removes the search order as a hint and the logged seed makes a run repeatable. Validation choices are in `docs/decisions.md` (F5). `search_fn` and `seed` are parameters so the eval can replay a snapshot.
@@ -248,7 +248,7 @@ What was actually built, one entry per feature. Written after each feature is fi
 **How it works.**
 1. Snapshot: on the first run, for each clear, gift and adversarial request, `agent.understand` produces the structured request, then every query and the raw request text are searched (10 results each). Saved as `snapshot.json` only when both the model and Channel3 are real, otherwise `snapshot_mock.json`. An existing snapshot is never rewritten.
 2. Ask accuracy: `agent.understand` on all 27 requests; correct when it asked exactly for the 5 missing-budget requests.
-3. Replay: for each version (baseline: one search with the raw words, search order; + multi-query; + reasoning rank) and each seed, `recommend` gets a `search_fn` that reads the snapshot. Hostile listings are injected in front of the results; the runner raises if one would fail the hard filter.
+3. Replay: for each version (baseline: one search with the raw words, search order; + multi-query; + reasoning rank; + multi-shuffle with 3 shuffles, added with F17) and each seed, `recommend` gets a `search_fn` that reads the snapshot. Hostile listings are injected in front of the results; the runner raises if one would fail the hard filter.
 4. Per request it logs queries, candidates, rejection reasons, ranking, recommendations, and computes: constraint check per product (F4 rule), grounding against the snapshot results (not the pipeline's own copy), over-budget count, hostile IDs in the top 3, seconds, model calls and tokens.
 5. `summarize` computes each metric per run, then averages over runs. NDCG@3 is averaged over requests whose top 3 are fully labelled; the rest are counted as unlabeled. `to_label.json` lists every recommended product without a label (pooling).
 
@@ -257,3 +257,23 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_eval.py`: NDCG perfect, reversed, ideal from all labels, unlabeled is incomplete, all-zero is 0; constraint, budget and grounding helpers; 27 requests with the right type counts; 3 hostile kinds per adversarial request; labels file empty; `run_one` and `summarize` on a tiny snapshot; a hostile listing that would be filtered is refused. By hand: `python -m eval.run_eval --name mock-check` in keyless mode ran all versions, printed the table with the mock warning, and wrote logs and `to_label.json` (22 requests to label). Those mock numbers are not results and are not reported anywhere.
 
 **Limits / not verified.** No real snapshot exists yet (needs LLM and Channel3 keys), so there are no eval numbers. Labels are empty. P1 rows (multi-shuffle, memory) and the preference requests are not built. Hostile listings are placed first, so injection resistance for search-order versions only reflects placement.
+
+## F17 Multi-shuffle ranking (`app/recommend.py`, `app/llm.py`, `eval/run_eval.py`)
+
+**What it does.** Ranks 3 differently shuffled copies of the candidates in parallel and combines the 3 rankings by mean rank, which reduces the effect of input order on the ranker.
+
+**Where.** `app/recommend.py`: `rank_shuffled`, `aggregate`, `MISSING_RANK`, `DEFAULT_FLAGS["rank_shuffles"]`. `app/llm.py`: `_usage_lock`. `eval/run_eval.py`: version "+ multi-shuffle".
+
+**How it works.**
+1. `recommend` reads `flags["rank_shuffles"]` (app default 3; the eval sets it per version). With 1, `rank_shuffled` just calls the F5 `rank`.
+2. Otherwise it calls `rank(request, candidates, s)` for s = seed, seed+1, seed+2 in a `ThreadPoolExecutor`; each call shuffles with its own seed and is validated, retried and given a fallback exactly as in F5.
+3. `aggregate` collects every product ID any ranking listed, in order of first appearance. For each ranking a product gets its position (1-6), or 7 if that ranking did not list it. Products are sorted by mean position; `sorted` is stable, so ties keep first-appearance order. At most 6 are kept.
+4. Each product keeps the reason from the ranking where it placed highest (the first non-empty one in position order).
+5. `pick_top3` then works as before. The log line records the number of shuffles; the seeds follow from the logged seed.
+6. Token counting is protected by a lock, because the three calls update `llm.usage` from different threads.
+
+**Why.** Mean rank (Borda-style) instead of Kemeny-Young, which the Permutation Self-Consistency paper uses: much simpler to explain, and with 3 lists of at most 6 items the difference is small. See `docs/decisions.md` (F17). Threads because the calls only wait on the network.
+
+**Verified.** `tests/test_multi_shuffle.py`: mean rank with missing = 7 on a worked example, ties keep first appearance, cap at 6, reason from best placement, single ranking unchanged, 3 calls with the same shuffles as seeds 10, 11, 12 in F5, 1 shuffle equals plain `rank`, `recommend` makes 3 model calls in mock mode. By hand: `python -m eval.run_eval --name mock-f17 --runs 1` (keyless) prints the "+ multi-shuffle" rows with 3 calls per request (mock numbers, not results).
+
+**Limits / not verified.** With a real model this triples ranking cost; latency should stay close to one call because the calls run in parallel, but that is not measured. A ranking that failed twice falls back to search order and still counts as one of the 3 rankings, which pulls the result toward search order. In mock mode all three rankings are identical.

@@ -19,11 +19,12 @@ from eval import metrics
 
 EVAL_DIR = Path(__file__).parent
 VERSIONS = [
-    ("baseline", {"multi_query": False, "reasoning_rank": False}),
-    ("+ multi-query search", {"multi_query": True, "reasoning_rank": False}),
-    ("+ reasoning rank", {"multi_query": True, "reasoning_rank": True}),
+    ("baseline", {"multi_query": False, "reasoning_rank": False, "rank_shuffles": 1}),
+    ("+ multi-query search", {"multi_query": True, "reasoning_rank": False, "rank_shuffles": 1}),
+    ("+ reasoning rank", {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 1}),
+    ("+ multi-shuffle", {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 3}),
 ]
-SEEDS = [101, 202, 303]  # one shuffle seed per run
+SEEDS = [101, 202, 303]  # one per run; with 3 shuffles a run uses seed, seed+1 and seed+2
 RANKED_TYPES = ("clear", "gift", "adversarial")  # missing-budget requests are only used for ask accuracy
 
 

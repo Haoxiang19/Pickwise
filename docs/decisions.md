@@ -59,3 +59,29 @@ No code was copied.
 **Chosen.** Linear gain (labels 0, 1, 2), discount `log2(position + 1)`, ideal DCG from the 3 highest labels among all labelled products of the request, and 0 when every label is 0, which matches trec_eval. One deliberate difference: a recommended product with no label is **not** scored as 0 (trec_eval's behaviour). The request is marked incomplete and the product is listed for labelling, as requirements section 9 asks, because pooling means an unlabeled product is a gap in the labels, not evidence of irrelevance. This plays the role of ir-measures' `Judged@k` check. About 10 lines of our own code instead of adding pytrec_eval or scikit-learn as a dependency.
 
 No code was copied.
+
+## F17 Multi-shuffle ranking: aggregating several rankings
+
+**Looked at (2026-11-11)**
+- Permutation Self-Consistency, MIT (https://github.com/castorini/perm-sc; paper https://aclanthology.org/2024.naacl-long.129/). Shuffle the input list several times with the instructions fixed, rank each, then take the central ranking that minimises Kendall tau distance to all of them (Kemeny-Young). The library also offers Borda, reciprocal rank fusion and local search; missing items are marked -1 and not every aggregator supports them.
+- castorini/rank_llm, Apache-2.0 (https://github.com/castorini/rank_llm). Has a `--num-passes` option for running the reranker several times; the README and release notes read do not say how passes are combined.
+
+**Chosen.** 3 shuffles (configurable through `rank_shuffles`; 1 is exactly F5), ranked in parallel threads, aggregated by **mean rank**, a Borda-style method. A product that a ranking does not list gets rank 7 (one place below the longest allowed list of 6), as requirements F17 specify; this gives missing items a defined value instead of the -1 marker that some perm-sc aggregators cannot use. Ties keep the order of first appearance. Kemeny-Young is rejected: it is NP-hard in general and much harder to explain line by line, and with 3 rankings of at most 6 items the difference is small. The shuffles use seed, seed+1, seed+2, all logged. The reason shown for a product comes from the ranking that placed it highest.
+
+No code was copied.
+
+## F18-F20 Preference memory
+
+**Looked at (2026-11-11)**
+- mem0, Apache-2.0 (https://github.com/mem0ai/mem0, https://docs.mem0.ai/core-concepts/memory-operations/add). An LLM extracts facts; the current algorithm is add-only (nothing overwritten); retrieval is embedding similarity scoped by `user_id` with `top_k`. No stored strength field.
+- LangMem, MIT (https://github.com/langchain-ai/langmem, https://langchain-ai.github.io/langmem/guides/memory_tools/). "Hot path": the agent itself calls a manage-memory tool during the conversation; alternatively a background manager extracts memories after each message. Items are keyed by ID in a per-user namespace.
+- OpenAI cookbook, "Context Engineering for Personalization" (https://developers.openai.com/cookbook/examples/agents_sdk/context_personalization.md). The model calls a `save_memory_note` tool; at the start of a run the notes are rendered into the system prompt as a short capped list. Confidence scores are only mentioned as an option. No user view or delete.
+
+**Chosen.**
+- Write on the hot path, like LangMem and the cookbook: a `remember_preference` tool (proposal tier; no click needed because it moves no money and the user can delete entries in F20). One SQLite table: `user_id`, `text`, `strength`, `evidence_count`, `updated_at`.
+- Updates by ID: the system prompt lists the user's memories with IDs, and the tool takes an optional `about_id` with `supports` or `contradicts`. Supports adds 0.1, contradicts subtracts 0.2, clamped to [-1, 1] (requirements, from MARS in appendix A). A new preference starts at 0.5. The strength score is our own field; none of the three sources stores one.
+- A completed purchase writes or supports "Likes the brand X" from code, matched by exact text, because the server, not the model, sees the capture.
+- Use: no embedding search (one short list per user is enough, and it needs no new dependency). At the start of a conversation the 3 strongest positive preferences become a profile that only the ranker sees, as soft preferences below the current request; hard constraints come only from the current request. The ranker may name the memory it used; code then appends that memory's text to the reason, so the reason always says which memory was used.
+- A "What I remember" panel lists every entry with a delete button (none of the sources covers this; required by F20).
+
+No code was copied.
