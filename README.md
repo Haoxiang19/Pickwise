@@ -24,6 +24,7 @@ user message
 
 - The agent loop is written by hand (no agent framework): `app/agent.py`.
 - All model calls go through one OpenAI-compatible client, so the provider is a config change: `app/llm.py`.
+- **Sets of products** ("a tent, a sleeping bag and a lantern under $300"): each item is searched and ranked on its own, and code, not the model, picks the set with the best ranks whose total fits the budget (it tries every combination of each item's top options, at most 6 items x 6 options). If even the cheapest set is over budget, nothing is ranked and the user is told what the cheapest set costs. The user can swap items and pay for the whole set in one PayPal order, which lists each product as a line item. Set recommendation has no eval numbers: the eval covers single-product requests only.
 - Saved preferences (for example "Prefers Sony") are shown only to the ranker, as soft preferences, at the start of a new conversation; the reason names the memory it used. Users can view and delete them in "What I remember".
 - Without any keys, the model, the catalog and PayPal each fall back to a clearly labelled mock, so the whole flow can be clicked through.
 
@@ -49,7 +50,7 @@ The model can never move money.
 | Purpose | Endpoint |
 | --- | --- |
 | Access token | `POST /v1/oauth2/token` |
-| Create order (redirect flow, `payment_source.paypal.experience_context`) | `POST /v2/checkout/orders` |
+| Create order (redirect flow, `payment_source.paypal.experience_context`, one line item per product with `item_total`) | `POST /v2/checkout/orders` |
 | Read the order back before capture | `GET /v2/checkout/orders/{id}` |
 | Capture | `POST /v2/checkout/orders/{id}/capture` |
 | Full refund | `POST /v2/payments/captures/{capture_id}/refund` |
@@ -112,7 +113,8 @@ Start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, one worker (se
 
 - Orders are a sandbox simulation; products are not really bought from the retailers.
 - Render's free instance has no persistent disk, sleeps after 15 minutes and can restart at any time. A restart loses sessions, carts, the SQLite orders and saved preferences, so an order paid before a restart can no longer be looked up or refunded in the app. The first request after a sleep is slow.
-- One product per order; full refunds only; no shipping or tax.
+- Up to 6 different products per order; full refunds only; no shipping or tax.
+- A set's first search knows only the total budget, so a search that returns only expensive products for one item can make a set impossible; the set treats every item as equally important.
 - No login: a random ID in an HttpOnly cookie identifies the user.
 - Product variants (size, colour) are ignored: the agent orders a product, not a specific variant.
 - The price is confirmed when the product is chosen, then held for the 15-minute quote; it is not checked again at the moment of payment.

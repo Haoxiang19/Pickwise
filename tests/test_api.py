@@ -128,3 +128,32 @@ def test_full_mock_purchase_of_a_two_item_cart(client):
     assert order["status"] == "COMPLETED"
     assert order["amount_cents"] == recs[0]["price_cents"] * 2 + recs[1]["price_cents"]
     assert [(i["title"], i["quantity"]) for i in order["items"]] == [(recs[0]["title"], 2), (recs[1]["title"], 1)]
+
+
+# --- F22 set recommendation ---
+
+def test_set_request_review_swap_confirm_and_pay(client):
+    data = client.post("/api/chat", json={"message": "a tent, a sleeping bag and a lantern under $500"}).json()
+    groups = data["bundle"]["items"]
+    assert [g["name"] for g in groups] == ["tent", "sleeping bag", "lantern"]
+    # The user swaps the lantern for an alternative, as the page's radio buttons do.
+    picks = [g["chosen"] for g in groups[:2]] + [groups[2]["alternatives"][0]]
+    cart = client.post("/api/cart", json={"items": [{"product_id": p["id"], "quantity": 1} for p in picks]}).json()
+    assert cart["total_cents"] == sum(p["price_cents"] for p in picks)
+    confirm = client.post("/api/confirm", json={"cart_id": cart["cart_id"]}).json()
+    token = confirm["approve_url"].split("token=")[1]
+    r = client.post("/mock-paypal/approve", content=f"token={token}",
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}, follow_redirects=False)
+    client.get(r.headers["location"], follow_redirects=False)
+    order = client.get(f"/api/orders/{confirm['order_id']}").json()
+    assert order["status"] == "COMPLETED" and order["amount_cents"] == cart["total_cents"]
+    assert [i["title"] for i in order["items"]] == [p["title"] for p in picks]
+
+
+def test_set_over_the_budget_is_refused_by_the_server(client):
+    data = client.post("/api/chat", json={"message": "a tent, a sleeping bag and a lantern under $180"}).json()
+    groups = data["bundle"]["items"]
+    # Rank 1 of every item costs $189.93 together, over the $180 budget.
+    rank1 = [g["chosen"] if "Chosen over" not in g["chosen"]["reason"] else g["alternatives"][0] for g in groups]
+    r = client.post("/api/cart", json={"items": [{"product_id": p["id"]} for p in rank1]})
+    assert r.status_code == 400 and "over your budget of $180.00" in r.json()["detail"]

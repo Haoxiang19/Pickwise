@@ -66,6 +66,7 @@ Side-by-side comparison table; an LLM judge with its agreement rate against huma
 | ID | Feature | Acceptance criteria |
 | --- | --- | --- |
 | F21 | Multi-item cart | A cart holds 1 to 6 different products, each with a quantity; the total is the sum computed by the server in integer cents; a total over the budget refuses the whole cart; one unknown, unavailable or duplicate product refuses the whole cart; the PayPal order carries one line item per product and an item total equal to the amount |
+| F22 | Set recommendation | For a request naming 2 to 6 different products under one budget, each item is searched and ranked on its own; code picks the set with the lowest rank sum among sets whose total is within the budget; if no set can fit, no model ranking is run and the user is told the price of the cheapest set |
 
 ## 4. Recommendation pipeline spec
 

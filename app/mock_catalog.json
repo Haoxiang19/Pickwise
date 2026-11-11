@@ -1535,5 +1535,150 @@
     "availability": "InStock"
    }
   ]
+ },
+ {
+  "id": "m-tn-03",
+  "title": "Core 4-Person Dome Tent",
+  "description": "Budget dome tent with a rain fly.",
+  "brands": [
+   {
+    "name": "Core"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-tn-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Tents"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "69.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-tn-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-sb-03",
+  "title": "Marmot Trestles 30 Sleeping Bag",
+  "description": "Synthetic sleeping bag rated to 30F.",
+  "brands": [
+   {
+    "name": "Marmot"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-sb-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Sleeping Bags"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "79.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-sb-03",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ln-01",
+  "title": "Goal Zero Lighthouse Micro Flash Lantern",
+  "description": "Rechargeable LED lantern and flashlight, 150 lumens.",
+  "brands": [
+   {
+    "name": "Goal Zero"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ln-01.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Lanterns"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "39.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ln-01",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ln-02",
+  "title": "Black Diamond Moji Lantern",
+  "description": "Compact LED lantern, 100 lumens.",
+  "brands": [
+   {
+    "name": "Black Diamond"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ln-02.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Lanterns"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "24.95",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ln-02",
+    "availability": "InStock"
+   }
+  ]
+ },
+ {
+  "id": "m-ln-03",
+  "title": "Vont Collapsible LED Lantern",
+  "description": "Battery LED lantern that folds flat.",
+  "brands": [
+   {
+    "name": "Vont"
+   }
+  ],
+  "images": [
+   {
+    "url": "https://example.com/img/m-ln-03.jpg",
+    "is_main_image": true
+   }
+  ],
+  "category": {
+   "title": "Lanterns"
+  },
+  "offers": [
+   {
+    "price": {
+     "price": "15.99",
+     "currency": "USD"
+    },
+    "url": "https://example.com/buy/m-ln-03",
+    "availability": "InStock"
+   }
+  ]
  }
 ]

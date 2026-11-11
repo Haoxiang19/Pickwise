@@ -249,3 +249,50 @@ def test_prepare_cart_items_with_an_invented_id_is_an_error():
     pid = next(iter(s.products))
     result = json.loads(agent.run_tool_call(s, call("prepare_cart", {"items": [{"product_id": pid}, {"product_id": "made-up"}]}), {}))
     assert "Unknown product" in result["error"] and s.carts == {}
+
+
+# --- F22 set recommendation through the agent ---
+
+SET_REQUEST = "a tent, a sleeping bag and a lantern under $500"
+
+
+def test_bundle_tool_stores_searched_products_and_the_total_budget():
+    s = Session()
+    ui = {}
+    result = json.loads(agent.run_tool_call(s, call("recommend_bundle", {
+        "raw_request": "camping set", "budget_usd": 300,
+        "items": [{"name": "tent", "queries": ["tent"]}, {"name": "lantern", "queries": ["lantern"]}]}), ui))
+    assert s.budget_cents == 30000  # the cart checks the set's total against this
+    chosen = [it["chosen"]["id"] for it in ui["bundle"]["items"]]
+    assert all(pid in s.products for pid in chosen) and [x["id"] for x in result["set"]] == chosen
+    assert result["total"] == "$" + agent.to_dollars(ui["bundle"]["total_cents"])
+
+
+def test_keyless_mock_sends_a_set_to_recommend_bundle_and_a_single_need_to_recommend():
+    calls = []
+    for text in (SET_REQUEST, "noise cancelling headphones under $100", "a gift for a coffee and tea lover under $50"):
+        s = Session()
+        agent.handle_message(s, text)
+        calls.append([c["function"]["name"] for m in s.history for c in m.get("tool_calls") or []][0])
+    assert calls == ["recommend_bundle", "recommend", "recommend"]
+    args = mock_agent.build_bundle("a tent, 2 sleeping bags and a lantern under $300", 300.0)
+    assert [(i["name"], i["quantity"]) for i in args["items"]] == [("tent", 1), ("sleeping bags", 2), ("lantern", 1)]
+
+
+def test_set_request_without_budget_asks_first():
+    out = agent.handle_message(Session(), "a tent, a sleeping bag and a lantern")
+    assert out["reply"] == mock_agent.BUDGET_QUESTION and "bundle" not in out
+
+
+def test_buy_the_set_prepares_a_cart_at_the_set_total():
+    s = Session()
+    shown = agent.handle_message(s, SET_REQUEST)["bundle"]
+    out = agent.handle_message(s, "buy the set")
+    assert out["cart"]["total_cents"] == shown["total_cents"]
+    assert [i["title"] for i in out["cart"]["items"]] == [it["chosen"]["title"] for it in shown["items"]]
+
+
+def test_bundle_tool_with_one_item_tells_the_model_to_use_recommend():
+    result = json.loads(agent.run_tool_call(Session(), call("recommend_bundle", {
+        "raw_request": "tent", "budget_usd": 100, "items": [{"name": "tent"}]}), {}))
+    assert "call recommend instead" in result["error"]

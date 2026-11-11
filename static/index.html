@@ -27,6 +27,10 @@
   #memory button { font-size: .8rem; padding: 2px 8px; margin-left: 6px; }
   .total td { font-weight: 700; border-top: 1px solid #ccc; padding-top: 6px; }
   details { margin: 8px 0; font-size: .9rem; }
+  fieldset.card legend { font-weight: 600; padding: 0 4px; }
+  .option { display: block; padding: 6px 0; border-top: 1px solid #eee; }
+  .option:first-of-type { border-top: 0; }
+  .option .reason { font-size: .9rem; color: #444; margin-left: 24px; }
   form { display: flex; gap: 8px; position: sticky; bottom: 0; background: #fafafa; padding: 8px 0; }
   input[type=text] { flex: 1; padding: 10px; font-size: 1rem; }
   button { padding: 8px 14px; font-size: 1rem; cursor: pointer; }
@@ -81,12 +85,57 @@ function showRecommendations(data) {
   }
   if (data.budget_note) box.appendChild(el("p", data.budget_note, "note"));
   if (data.note) box.appendChild(el("p", data.note, "note"));
-  if (data.rejected && data.rejected.length) {
-    const d = box.appendChild(el("details"));
-    d.appendChild(el("summary", `Ruled out (${data.rejected.length})`));
-    const ul = d.appendChild(el("ul"));
-    for (const x of data.rejected) ul.appendChild(el("li", `${x.title} (${x.price_cents == null ? "no price" : dollars(x.price_cents)}): ${x.reason}`));
+  showRejected(box, data.rejected);
+}
+
+// F6: what was ruled out and why. In a set (F22) each entry also names its item.
+function showRejected(box, rejected) {
+  if (!rejected || !rejected.length) return;
+  const d = box.appendChild(el("details"));
+  d.appendChild(el("summary", `Ruled out (${rejected.length})`));
+  const ul = d.appendChild(el("ul"));
+  for (const x of rejected) {
+    ul.appendChild(el("li", `${x.item ? x.item + ": " : ""}${x.title} (${x.price_cents == null ? "no price" : dollars(x.price_cents)}): ${x.reason}`));
   }
+}
+
+// F22: a set, one group per item. The chosen product is preselected; the others are alternatives.
+// The page never adds prices: the set total comes from the server, and a changed selection is
+// priced by the server when the set is reviewed.
+let setCount = 0;
+function showBundle(set) {
+  const box = add(el("div"));
+  const groups = [];
+  setCount += 1;
+  const total = el("p", set.total_cents == null ? "" : "Set total: " + dollars(set.total_cents)
+    + (set.budget_cents == null ? " (no budget limit)" : " (budget " + dollars(set.budget_cents) + ")"), "price");
+  set.items.forEach((item, i) => {
+    const group = box.appendChild(el("fieldset", undefined, "card"));
+    group.appendChild(el("legend", item.quantity + " x " + item.name));
+    for (const p of [item.chosen, ...item.alternatives]) {
+      const label = group.appendChild(el("label", undefined, "option"));
+      const radio = label.appendChild(el("input"));
+      radio.type = "radio"; radio.name = `set${setCount}-item${i}`; radio.value = p.id; radio.checked = p === item.chosen;
+      radio.onchange = () => { total.textContent = "The total is recalculated when you review the set."; };
+      label.append(" " + p.title + (p.brand ? " - " + p.brand : "") + " ");
+      label.appendChild(el("span", dollars(p.price_cents), "price"));
+      label.appendChild(el("div", p.reason, "reason"));
+    }
+    groups.push({group, quantity: item.quantity});
+  });
+  if (set.items.length) box.appendChild(total);
+  if (set.budget_note) box.appendChild(el("p", set.budget_note, "note"));
+  if (set.note) box.appendChild(el("p", set.note, "note"));
+  if (set.items.length) {
+    const review = box.appendChild(el("button", "Review this set"));
+    review.onclick = async () => {
+      const items = groups.map(g => ({product_id: g.group.querySelector("input:checked").value, quantity: g.quantity}));
+      // The server prices the cart and refuses a set over the budget; its message is shown as is.
+      try { showSummary(await api("/api/cart", {items})); }
+      catch (err) { add(el("div", "Error: " + err.message, "msg bot")); }
+    };
+  }
+  showRejected(box, set.rejected);
 }
 
 // F8: order summary. Every number here comes from the server.
@@ -152,6 +201,7 @@ async function send(text) {
   const data = await api("/api/chat", {message: text});
   add(el("div", data.reply, "msg bot"));
   if (data.recommendations) showRecommendations(data);
+  if (data.bundle) showBundle(data.bundle);
   if (data.cart) showSummary(data.cart);
   if (data.orders) data.orders.forEach(showOrder);
   if (data.refund_draft) showRefundDraft(data.refund_draft);

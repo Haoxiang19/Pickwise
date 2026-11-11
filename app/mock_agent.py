@@ -28,6 +28,9 @@ REFUND = re.compile(r"\b(refund|money back|return it)\b", re.I)
 PREFER = re.compile(r"\bi (?:always |really |usually )?(?:prefer|love|only buy|always buy)\s+([^.,!?]+)", re.I)
 DISLIKE = re.compile(r"\bi (?:no longer|don'?t|do not) (?:like|prefer|want)\s+([^.,!?]+?)(?:\s+anymore)?(?:[.,!?]|$)", re.I)
 SAVED = re.compile(r"^- \[(\d+)\] [+-][\d.]+ (.+)$", re.M)
+SET_PART = re.compile(r"(a|an|\d+)\s+(.+)", re.I)  # "a tent", "2 sleeping bags": one item of a set (F22)
+TRAILING_BUDGET_WORDS = re.compile(r"\s+(?:under|below|less than|up to|max|for|budget(?: is| of)?)\s*$", re.I)
+TAKE_SET = re.compile(r"\b(?:buy|take|get|want|choose)\s+(?:the\s+)?(?:whole\s+)?set\b", re.I)
 
 
 def text_message(content: str) -> dict:
@@ -63,10 +66,51 @@ def build_request(text: str, budget: float | None) -> dict:
     return args
 
 
+def build_bundle(text: str, budget: float | None) -> dict | None:
+    """F22: read "a tent, 2 sleeping bags and a lantern under $300" as a set, or return None.
+
+    A set needs 2 to 6 parts that each start with "a", "an" or a number, so "a gift for a coffee
+    and tea lover" stays one request.
+    """
+    core = APPROX.sub(" ", NO_LIMIT.sub(" ", AMOUNT.sub(" ", EXCLUDE.sub(" ", text))))
+    parts = [p.strip(" .!?") for p in re.split(r",|\band\b", core) if p.strip(" .!?")]
+    matches = [SET_PART.fullmatch(p) for p in parts]
+    if not 2 <= len(parts) <= 6 or not all(matches):
+        return None
+    items = []
+    for m in matches:
+        name = TRAILING_BUDGET_WORDS.sub("", m.group(2)).strip()
+        quantity = int(m.group(1)) if m.group(1).isdigit() else 1
+        items.append({"name": name, "queries": [name], "quantity": quantity})
+    args = {"raw_request": text, "must_not": [w.lower() for w in EXCLUDE.findall(text) if w.lower() not in NOT_KEYWORDS],
+            "items": items}
+    if budget is not None:
+        args["budget_usd"] = budget
+        args["budget_is_strict"] = not APPROX.search(text)
+    return args
+
+
+def last_set(messages: list[dict]) -> list[dict]:
+    """The set chosen most recently, read back from the latest recommend_bundle tool result."""
+    for m in reversed(messages):
+        if m["role"] == "tool":
+            result = json.loads(m["content"])
+            if result.get("set"):
+                return result["set"]
+    return []
+
+
 def summarize(result: dict) -> str:
     """Reply after a tool result."""
     if "error" in result:
         return f"Sorry, something went wrong: {result['error']}"
+    if "set" in result:
+        if not result["set"]:
+            return "I could not build a set that fits. " + result["note"]
+        names = "; ".join(f"{s['quantity']} x {s['title']} ({s['price']} each)" for s in result["set"])
+        note = " " + result["note"] if result["note"] else ""
+        return (f"Here is a set for {result['total']}: {names}.{note} "
+                "You can swap items on the cards, then click Review this set, or say \"buy the set\".")
     if "recommendations" in result:
         recs = result["recommendations"]
         if not recs:
@@ -162,6 +206,10 @@ def reply(messages: list[dict]) -> dict:
     if dislike or prefer:
         return tool_message("remember_preference", preference_args(messages[0]["content"], dislike, prefer))
 
+    chosen_set = last_set(messages)
+    if TAKE_SET.search(text) and chosen_set:
+        return tool_message("prepare_cart", {"items": [{"product_id": s["id"], "quantity": s["quantity"]} for s in chosen_set]})
+
     shown = last_recommendations(messages)
     pick = PICK.search(text)
     if pick and ORDINALS[pick.group(1).lower()] < len(shown):
@@ -183,4 +231,7 @@ def reply(messages: list[dict]) -> dict:
             return text_message(BUDGET_QUESTION)
     if budget is None and not no_limit:
         return text_message("Sorry, I did not catch a number. " + BUDGET_QUESTION)
+    bundle = build_bundle(request_text, budget)
+    if bundle:
+        return tool_message("recommend_bundle", bundle)
     return tool_message("recommend", build_request(request_text, budget))
