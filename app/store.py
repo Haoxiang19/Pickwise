@@ -1,6 +1,9 @@
-"""Sessions and carts (in memory). Orders in SQLite are added with the payment features."""
+"""Sessions and carts in memory; orders in SQLite."""
+import json
 import secrets
+import sqlite3
 import time
+from contextlib import closing
 from dataclasses import dataclass, field
 
 from app.money import to_dollars
@@ -59,3 +62,78 @@ def get_valid_cart(session: Session, cart_id: str, now: float | None = None) -> 
     if (time.time() if now is None else now) > cart["expires_at"]:
         raise CartError("This price quote has expired. Please choose the product again.")
     return cart
+
+
+# --- Orders (SQLite) ---
+
+DB_PATH = "orders.db"
+SCHEMA = """CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    cart_id TEXT NOT NULL UNIQUE,  -- one order per cart: a second Confirm finds this row
+    paypal_order_id TEXT,
+    approval_url TEXT,
+    capture_id TEXT,
+    refund_id TEXT,
+    amount_cents INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    items TEXT NOT NULL,           -- JSON snapshot of the cart items at Confirm
+    status TEXT NOT NULL,          -- CREATED, COMPLETED, CANCELLED, AMOUNT_MISMATCH, CAPTURE_FAILED, REFUNDED
+    note TEXT NOT NULL DEFAULT '', -- why a payment failed, shown to the user
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+)"""
+
+
+def _connect() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute(SCHEMA)
+    return conn
+
+
+def _row(row) -> dict | None:
+    if row is None:
+        return None
+    order = dict(row)
+    order["items"] = json.loads(order["items"])
+    return order
+
+
+def create_order(user_id: str, cart: dict) -> dict:
+    """Copy the cart onto a new order row with status CREATED. From now on the row is the reference."""
+    now = time.time()
+    with closing(_connect()) as conn, conn:
+        cur = conn.execute(
+            "INSERT INTO orders (user_id, cart_id, amount_cents, currency, items, status, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, 'CREATED', ?, ?)",
+            (user_id, cart["id"], cart["total_cents"], cart["currency"], json.dumps(cart["items"]), now, now))
+        order_id = cur.lastrowid
+    return get_order(order_id, user_id)
+
+
+def get_order(order_id: int, user_id: str) -> dict | None:
+    """An order of this user, or None. Users can only see their own orders."""
+    with closing(_connect()) as conn:
+        return _row(conn.execute("SELECT * FROM orders WHERE id = ? AND user_id = ?", (order_id, user_id)).fetchone())
+
+
+def get_order_by_cart(cart_id: str, user_id: str) -> dict | None:
+    with closing(_connect()) as conn:
+        return _row(conn.execute("SELECT * FROM orders WHERE cart_id = ? AND user_id = ?", (cart_id, user_id)).fetchone())
+
+
+def list_orders(user_id: str, limit: int = 5) -> list[dict]:
+    with closing(_connect()) as conn:
+        rows = conn.execute("SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC LIMIT ?", (user_id, limit)).fetchall()
+    return [_row(r) for r in rows]
+
+
+UPDATABLE = {"paypal_order_id", "approval_url", "capture_id", "refund_id", "status", "note"}
+
+
+def update_order(order_id: int, **fields) -> None:
+    assert set(fields) <= UPDATABLE, fields  # column names come from code only, never from input
+    sets = ", ".join(f"{k} = ?" for k in fields)
+    with closing(_connect()) as conn, conn:
+        conn.execute(f"UPDATE orders SET {sets}, updated_at = ? WHERE id = ?", (*fields.values(), time.time(), order_id))

@@ -122,3 +122,24 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_store.py`: integer-cent total, unknown ID, quantity bounds and type, unavailable products, budget on the total, no-budget skip, expiry at 15 minutes. `tests/test_agent.py`: "take the second one" prepares the right cart at the server price; a model-supplied price is ignored; an invented ID returns an error. `tests/test_api.py`: Choose endpoint works, and another browser cannot use this session's product. By hand (keyless): "a yoga mat under $120", Choose on the second card shows Lululemon The Mat 5mm, $108.00, quantity 1, total $108.00.
 
 **Limits.** One product per cart (multiple items is P2). Expired carts stay in memory until restart. The quantity can only be changed by asking the agent; the page always sends 1.
+
+## F9 User confirmation, F10 Create order and redirect (`app/checkout.py`, `app/paypal.py`, `app/paypal_mock.py`, `app/store.py`)
+
+**What it does.** Only the Confirm click creates a payment: it copies the cart onto an order row (`CREATED`), creates a PayPal Orders v2 order for exactly that amount, and redirects the browser to PayPal's approval page.
+
+**Where.** `app/checkout.py`: `confirm`, `LOCK`, `CheckoutError`, `order_view`, `MESSAGES`. `app/paypal.py`: `BASE_URL`, `_access_token`, `_call`, `create_order` (plus `get_order`, `capture_order`, `refund_capture` used later). `app/paypal_mock.py`: in-memory PayPal. `app/store.py`: `orders` table, `create_order`, `get_order`, `get_order_by_cart`, `list_orders`, `update_order`. `app/main.py`: `POST /api/confirm`, `GET /mock-paypal/checkout`, `POST /mock-paypal/approve`. Page: Confirm button in the summary.
+
+**How it works.**
+1. The page posts the cart ID to `/api/confirm`; the button disables itself after the first click.
+2. Under `checkout.LOCK`, `confirm` looks for an order row with this `cart_id` and user. If none, it checks the cart is this session's and not expired (the 15-minute quote ends here) and inserts a row: user, cart ID, amount, currency, JSON item snapshot, status `CREATED`. `cart_id` is `UNIQUE`.
+3. A row that is no longer `CREATED` is refused ("choose the product again"). A row that already has an approval link is returned as is, so a second Confirm gives the same order and link.
+4. Otherwise `paypal.create_order` sends `intent: CAPTURE`, the amount as a string from cents (`to_dollars`), and `payment_source.paypal.experience_context` with `return_url`/`cancel_url` carrying our local order ID, `PAY_NOW` and `NO_SHIPPING`, with `PayPal-Request-Id: create-{cart_id}`. It returns the order ID and the `payer-action` link, which are stored on the row.
+5. If PayPal fails, the row stays `CREATED` without a link and the user sees "Nothing was charged"; clicking again retries with the same request ID.
+6. `paypal._call` adds the cached bearer token (client-credentials, reused until a minute before `expires_in`) and the request ID, turns 5xx and network failures into issue `NETWORK_ERROR`, and other errors into `details[0].issue` or `name`.
+7. Without PayPal credentials, `paypal_mock` returns responses of the same shape, keeps request-ID idempotency, and `/mock-paypal/checkout` shows a clearly labelled page with Approve and Cancel.
+
+**Why.** Redirect flow so the page needs no PayPal JavaScript. Local row first, then PayPal, so a retry can always find the row; see `docs/decisions.md` (F9-F14) for the sources compared. `BASE_URL` is a constant so the app can never reach live PayPal.
+
+**Verified.** `tests/test_checkout.py`: row and PayPal order created with the right amount, URLs and request ID; second Confirm returns the same order; expired and foreign carts refused; PayPal failure keeps the row and retries with the same request ID; non-`CREATED` row refused; orders private per user. `tests/test_paypal.py` (fake HTTP): sandbox base URL constant, create body and headers, `payer-action` link, token cached, capture/refund empty body and request IDs, error issue parsing, missing link. By hand (keyless): request, "take the first one", Confirm, landed on the mock PayPal page showing "Pay 59.99 USD".
+
+**Limits / not verified.** No real sandbox call yet: the `payer-action` link, `PAYER_ACTION_REQUIRED` status and token response are from the docs only. `APP_BASE_URL` must be set on Render so the return URL uses the public host.

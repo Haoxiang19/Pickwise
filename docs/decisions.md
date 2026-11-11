@@ -30,3 +30,21 @@ No code was copied.
 - The budget question (F2) is a prompt rule; whether the model follows it is measured by the eval's ask accuracy. The budget itself is enforced in code (F4 and the cart check).
 
 No code was copied.
+
+## F9-F14 PayPal order creation, return handling, pre-capture check, idempotency
+
+**Looked at (2026-11-11)**
+- PayPal's official standard-integration sample, Apache-2.0 (https://github.com/paypal-examples/docs-examples/tree/main/standard-integration/server; read `server/python/server.py` and `server/node/server.js`). Create: `intent: CAPTURE`, one purchase unit with a hard-coded amount, no `PayPal-Request-Id`, no return/cancel URLs (it uses the JS SDK popup, not a redirect). Capture: called directly with the order ID from the browser; the order is not read back first. Errors become a generic HTTP 500. The SDK handles the access token.
+- Orders v2 reference (https://developer.paypal.com/api/orders/v2/orders-create, `.../orders-capture`) and error list (https://developer.paypal.com/api/rest/reference/orders/v2/errors/). `PayPal-Request-Id` is "for idempotency purposes"; the errors page lists `ORDER_NOT_APPROVED`, `INSTRUMENT_DECLINED` and `ORDER_ALREADY_CAPTURED` for capture as `UNPROCESSABLE_ENTITY`, and `PAYPAL_REQUEST_ID_REQUIRED` for create with a `payment_source`. The `experience_context` and `payer-action` details could not be re-read on the rendered page this time; they are taken from requirements section 8.
+- Idempotency guideline (https://developer.paypal.com/reference/guidelines/idempotency/). Retrying with the same `PayPal-Request-Id` returns the latest status of the earlier request; omitting it duplicates the request; two simultaneous requests with the same ID may fail the second; retention is per API.
+- Refund reference (https://developer.paypal.com/api/payments/v2/captures-refund). Empty body for a full refund; the example response has `status: COMPLETED`. The 45-day retention figure in the requirements was not found on the pages read.
+
+**Chosen.**
+- Redirect flow with `payment_source.paypal.experience_context` (return/cancel URLs, `PAY_NOW`, `NO_SHIPPING`) and redirect to the `payer-action` link, because it needs no PayPal JavaScript on the page and works as plain navigation.
+- Deterministic request IDs `create-{cart_id}`, `capture-{order_id}`, `refund-{order_id}`, so a retry repeats the same request. The sample sends none.
+- The local order row is the first guard: Confirm returns the existing order for a cart (`cart_id` is `UNIQUE`), capture runs only from `CREATED`, refund only from `COMPLETED`. A process-wide lock around these actions (single worker) stops a double click from racing past the status check; the request ID is the second guard.
+- Read the order back before capture and require `APPROVED` plus amount and currency equal to the order row (amounts parsed with `Decimal`). The sample does not do this; it is this project's own addition (requirements section 6).
+- Paid only when `purchase_units[0].payments.captures[0].status == "COMPLETED"`. Error issues are read from `details[0].issue`, falling back to `name`.
+- The PayPal order ID is taken from our order row, never from the return URL's query string; the return URL carries only our local order ID, and the row must belong to the cookie's user.
+
+No code was copied.

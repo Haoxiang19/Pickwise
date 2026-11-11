@@ -90,6 +90,15 @@ function showSummary(cart) {
   row("Unit price", dollars(cart.unit_price_cents));
   row("Quantity", String(cart.quantity));
   row("Total (" + cart.currency + ")", dollars(cart.total_cents), "total");
+  box.appendChild(el("p", "Nothing is charged until you approve the payment on PayPal.", "note"));
+  const pay = box.appendChild(el("button", "Confirm and pay with PayPal"));
+  pay.onclick = async () => {
+    pay.disabled = true;  // F12: one click only; the server also returns the same order on a repeat
+    try {
+      const order = await api("/api/confirm", {cart_id: cart.cart_id});
+      window.location.href = order.approve_url;
+    } catch (err) { add(el("div", "Error: " + err.message, "msg bot")); }
+  };
   return box;
 }
 
@@ -115,6 +124,7 @@ api("/api/status").then(s => {
   const badges = document.getElementById("badges");
   if (s.mock_llm) badges.appendChild(el("span", "Mock model (no LLM key)", "badge"));
   if (s.mock_catalog) badges.appendChild(el("span", "Mock catalog (no Channel3 key)", "badge"));
+  if (s.mock_paypal) badges.appendChild(el("span", "Mock PayPal (no PayPal credentials)", "badge"));
 });
 </script>
 </body>
