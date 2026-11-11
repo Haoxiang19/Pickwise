@@ -18,6 +18,7 @@ class CartError(ValueError):
 
 @dataclass
 class Session:
+    user_id: str = ""                             # the cookie ID; orders are looked up by it
     history: list = field(default_factory=list)   # chat messages sent to the model, without the system prompt
     products: dict = field(default_factory=dict)  # every product returned by a search in this session, by ID
     budget_cents: int | None = None               # budget of the latest request; None means no limit
@@ -28,7 +29,9 @@ sessions: dict[str, Session] = {}
 
 
 def get_session(user_id: str) -> Session:
-    return sessions.setdefault(user_id, Session())
+    if user_id not in sessions:
+        sessions[user_id] = Session(user_id=user_id)
+    return sessions[user_id]
 
 
 def create_cart(session: Session, product_id: str, quantity: int = 1, now: float | None = None) -> dict:

@@ -165,3 +165,34 @@ def test_follow_up_exclusion_is_added_to_earlier_ones():
 
 def test_refine_rule_is_in_system_prompt():
     assert "keep every earlier condition" in agent.SYSTEM_PROMPT
+
+
+# --- F15 order status ---
+
+def paid_order(s):
+    from app import checkout, paypal_mock
+    out = agent.handle_message(s, "noise cancelling headphones under $100")
+    cart = agent.handle_message(s, "take the first")["cart"]
+    order = checkout.confirm(s, s.user_id, cart["cart_id"], "http://t")
+    paypal_mock.approve(order["paypal_order_id"])
+    return checkout.handle_return(s.user_id, order["id"]), out["recommendations"][0]
+
+
+def test_order_status_returns_id_status_and_amount():
+    from app import store
+    s = store.get_session("u1")
+    order, rec = paid_order(s)
+    out = agent.handle_message(s, f"what is the status of order #{order['id']}?")
+    [view] = out["orders"]
+    assert view["order_id"] == order["id"] and view["status"] == "COMPLETED" and view["amount_cents"] == rec["price_cents"]
+    assert f"#{order['id']} COMPLETED" in out["reply"]
+    assert agent.handle_message(s, "show my orders")["orders"][0]["order_id"] == order["id"]
+
+
+def test_order_status_hides_other_users_orders():
+    from app import store
+    owner = store.get_session("owner")
+    order, _ = paid_order(owner)
+    other = store.get_session("other")
+    out = agent.handle_message(other, f"status of order {order['id']}")
+    assert out["orders"] == [] and "could not find" in out["reply"]

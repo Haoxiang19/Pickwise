@@ -21,6 +21,8 @@ ORDINALS = {"first": 0, "1st": 0, "1": 0, "second": 1, "2nd": 1, "2": 1, "third"
 CHEAPER = re.compile(r"\b(cheaper|less expensive|lower price)\b", re.I)
 OTHER_BRAND = re.compile(r"\b(different|another|other) brands?\b", re.I)
 FOLLOW_UP = re.compile(r"^\s*(but|also|and|actually|only|now)\b", re.I)
+ORDER_QUESTION = re.compile(r"\b(order status|my orders?|where is my order|status of (my )?order|orders?\s*#?\s*\d+)\b", re.I)
+ORDER_ID = re.compile(r"\border\s*#?\s*(\d+)\b|#(\d+)", re.I)
 
 
 def text_message(content: str) -> dict:
@@ -65,6 +67,10 @@ def summarize(result: dict) -> str:
             return "I could not find anything that fits. " + result["note"]
         names = "; ".join(f"{r['title']} ({r['price']})" for r in recs)
         return f"Here are {len(recs)} picks: {names}. {result['note']}".strip()
+    if "orders" in result:
+        if not result["orders"]:
+            return "I could not find that order."
+        return "Your orders: " + "; ".join(f"#{o['order_id']} {o['status']} {o['amount']}" for o in result["orders"]) + "."
     if "cart_id" in result:
         return f"Your order summary is ready: {result['quantity']} x {result['title']}, total {result['total']}. Click Confirm to pay on PayPal."
     return "Done."
@@ -118,6 +124,10 @@ def reply(messages: list[dict]) -> dict:
     pick = PICK.search(text)
     if pick and ORDINALS[pick.group(1).lower()] < len(shown):
         return tool_message("prepare_cart", {"product_id": shown[ORDINALS[pick.group(1).lower()]]["id"], "quantity": 1})
+
+    if ORDER_QUESTION.search(text):
+        m = ORDER_ID.search(text)
+        return tool_message("get_orders", {"order_id": int(m.group(1) or m.group(2))} if m else {})
 
     earlier = last_recommend_args(messages)
     if earlier and (CHEAPER.search(text) or OTHER_BRAND.search(text) or FOLLOW_UP.search(text)):

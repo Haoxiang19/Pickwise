@@ -201,3 +201,21 @@ What was actually built, one entry per feature. Written after each feature is fi
 **Verified.** `tests/test_agent.py`: "cheaper" lowers the budget to $80 and keeps the JBL exclusion and queries; "different brand" excludes all shown brands and keeps the budget; "also no Osprey" adds to "no leather"; prompt contains the rule. By hand (keyless): "running shoes under $150, no Nike" then "something cheaper" gave products at or below $120 with Nike still excluded and the fewer-than-3 note.
 
 **Limits / not verified.** Whether a real model keeps earlier conditions reliably is not measured (multi-turn eval is P2). The mock only recognises the phrasings listed above.
+
+## F15 Order status (`app/agent.py`, `app/store.py`)
+
+**What it does.** When the user asks about an order, the agent returns the order ID, status and amount from the database, only for this user's orders.
+
+**Where.** `app/agent.py`: `get_orders` tool (`tool_get_orders`), prompt rule. `app/store.py`: `Session.user_id`, `get_order`, `list_orders`. `app/mock_agent.py`: `ORDER_QUESTION`, `ORDER_ID`. Page: each order is shown with `showOrder`.
+
+**How it works.**
+1. The model calls `get_orders` with an optional `order_id` (read-only tool tier).
+2. With an ID: `store.get_order(id, session.user_id)`; without: the latest 5 orders of this user. The SQL always filters by `user_id`, so another user's order is "not found".
+3. Each row goes through `checkout.order_view` (ID, status, amount, items, PayPal order ID, status message). The model gets ID, status, formatted amount and item titles; the page gets the full views.
+4. Keyless mock: "order status", "my orders", "order #3" and similar call the tool, then list `#id STATUS $amount`.
+
+**Why.** The session stores the cookie's user ID so tools can filter by owner without the model ever supplying a user ID.
+
+**Verified.** `tests/test_agent.py`: after a mock purchase, "status of order #N" returns that order as `COMPLETED` with the right amount; "show my orders" lists it; another user gets nothing. By hand (keyless, after a server restart with the same cookie): "what is my order status?" listed #3 CANCELLED $27.99, #2 COMPLETED $39.95, #1 CREATED $59.99.
+
+**Limits.** Orders live in SQLite on the server's disk, which Render's free tier does not keep across restarts. After a restart the mock PayPal forgets its orders, so "Check again" on an old `CREATED` order only shows "Could not reach PayPal".

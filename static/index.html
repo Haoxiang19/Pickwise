@@ -124,6 +124,7 @@ async function send(text) {
   add(el("div", data.reply, "msg bot"));
   if (data.recommendations) showRecommendations(data);
   if (data.cart) showSummary(data.cart);
+  if (data.orders) data.orders.forEach(showOrder);
 }
 
 document.getElementById("form").addEventListener("submit", async e => {
