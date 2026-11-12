@@ -9,6 +9,6 @@ eval/runs/
 .pytest_tmp/
 eval/snapshot_mock.json
 
-# Impeccable design skill: a third-party install, not part of this project (see README, AI tools used)
+# Impeccable design skill: a third-party install, not part of this project (see README, AI disclosure)
 .claude/skills/
 .claude/agents/

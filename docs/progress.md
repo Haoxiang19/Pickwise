@@ -47,7 +47,7 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 ## Next steps for the owner (in order)
 1. Create an empty public GitHub repository and give its URL; then push (only on the owner's word).
 2. Deploy on Render from `render.yaml` (New > Blueprint), enter the four keys, then set `APP_BASE_URL` to the service URL and deploy again. Check the full flow on the public URL, including one sandbox payment.
-3. Rewrite in your own words: the README introduction and the "AI tools used" section (marked DRAFT).
+3. Rewrite in your own words: the README introduction and the "AI disclosure" section (marked DRAFT).
 4. Optional: hand labels in `eval/labels.json` from `eval/runs/full/to_label.json` for NDCG@3.
 5. Record the video (3 minutes or less, public on YouTube) and submit on Devpost with the repository and demo links.
 
