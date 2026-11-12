@@ -136,7 +136,7 @@ TOOLS = [
 def tool_recommend(session: Session, args: dict, ui: dict) -> dict:
     request = rec.parse_request(args)
     request["memory"] = session.memory_profile or []  # F19: added by the server, never by the model
-    result = rec.recommend(request)
+    result = rec.recommend(request, on_step=lambda text: show_step(session, text))
     # Remember every searched product: only these IDs may enter a cart, at the server's price.
     session.products.update({p["id"]: p for p in result["products"]})
     session.budget_cents = request["budget_cents"]
@@ -155,7 +155,7 @@ def tool_recommend_bundle(session: Session, args: dict, ui: dict) -> dict:
     """F22, read-only: the server picks the set; the model only gets the result to describe."""
     request = rec.parse_bundle(args)
     request["memory"] = session.memory_profile or []  # F19: added by the server, never by the model
-    result = rec.recommend_bundle(request)
+    result = rec.recommend_bundle(request, on_step=lambda text: show_step(session, text))
     # Same as tool_recommend: only searched products may enter a cart, and the cart checks the total budget.
     session.products.update({p["id"]: p for p in result["products"]})
     session.budget_cents = request["budget_cents"]
@@ -280,6 +280,17 @@ def system_prompt(user_id: str, session: Session | None = None) -> str:
     return prompt + "\n\n" + activity if activity else prompt
 
 
+# Shown while a tool runs. recommend and recommend_bundle report their own steps (search, rank).
+TOOL_STEPS = {"prepare_cart": "Checking the current price", "get_orders": "Looking up your orders",
+              "draft_refund": "Preparing the refund draft", "remember_preference": "Saving your preference"}
+MAX_STEP_CHARS = 200
+
+
+def show_step(session: Session, text: str) -> None:
+    """Record what the agent is doing now. The page polls GET /api/progress while it waits for the reply."""
+    session.progress = text[:MAX_STEP_CHARS]
+
+
 def run_tool_call(session: Session, call: dict, ui: dict) -> str:
     """Run one tool call. Every problem is returned to the model as an error message, never raised."""
     fn = call.get("function") or {}
@@ -293,6 +304,8 @@ def run_tool_call(session: Session, call: dict, ui: dict) -> str:
             raise ValueError("arguments must be a JSON object")
         # Shows what the model decided (e.g. which must_not words a "I don't like..." became). No secrets in tool args.
         log.info("tool %s %s", name, json.dumps(args)[:1000])
+        if name in TOOL_STEPS:
+            show_step(session, TOOL_STEPS[name])
         return json.dumps(tool(session, args, ui))
     except Exception as e:  # noqa: BLE001 - any tool failure goes back to the model as data
         log.warning("tool %s failed: %s", name, e)
@@ -328,12 +341,21 @@ def understand(text: str, user_id: str = "") -> dict:
 
 def handle_message(session: Session, text: str) -> dict:
     """Run the agent for one user message. Returns the reply text and data for the page."""
+    try:
+        return _run_agent(session, text)
+    finally:
+        session.progress = ""  # nothing is running any more, whatever happened
+
+
+def _run_agent(session: Session, text: str) -> dict:
     if session.memory_profile is None:
         # F19: the profile is fixed at the start of a conversation; what the user says now overrides it.
         session.memory_profile = memory.profile(session.user_id)
     session.history.append({"role": "user", "content": text})
     ui = {}
-    for _ in range(MAX_TOOL_ROUNDS):
+    for round_number in range(MAX_TOOL_ROUNDS):
+        # The first model call reads the request; later ones see tool results and usually write the reply.
+        show_step(session, "Understanding your request" if round_number == 0 else "Writing the reply")
         messages = [{"role": "system", "content": system_prompt(session.user_id, session)}] + session.history
         message = llm.ask(messages, check_reply, None, tools=TOOLS, mock=mock_agent.reply)
         if message is None:

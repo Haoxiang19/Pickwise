@@ -79,6 +79,12 @@ def chat(body: ChatIn, request: Request):
     return agent.handle_message(session, body.message.strip()[:2000])
 
 
+@app.get("/api/progress")
+def progress(request: Request):
+    """What the agent is doing for this user right now ("" when idle). Read-only; the page polls it while waiting."""
+    return {"step": store.get_session(request.state.user_id).progress}
+
+
 @app.post("/api/conversation/new")
 def new_conversation(request: Request):
     """F19: a fresh conversation; saved preferences will be applied to its recommendations."""

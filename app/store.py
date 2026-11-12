@@ -29,6 +29,7 @@ class Session:
     budget_cents: int | None = None               # budget of the latest request; None means no limit
     carts: dict = field(default_factory=dict)     # cart ID -> cart
     memory_profile: list | None = None            # F19: strongest saved preferences, loaded at the first message
+    progress: str = ""                            # what the agent is doing right now, polled by the page while it waits
 
 
 sessions: dict[str, Session] = {}

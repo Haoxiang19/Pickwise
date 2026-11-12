@@ -34,7 +34,8 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Purchase-written brand preferences start at 0.2 (stated ones at 0.5) and name the category ("Likes the brand Coleman for tents"), so a set purchase no longer fills the memory profile. The agent prompt now tells the model to keep the scope the user gave when it writes a preference (prompt rule only, not checked on a real model).
 - The agent's system prompt now carries the user's 3 most recently changed orders (with line numbers and refunds) and the unpaid order summary, read from the database on every turn, so it knows what happened through buttons and PayPal; with several candidates it asks instead of guessing. Tool calls and must-not words are logged.
 - Agent prompt: five rules from 13 real-model probes (status is payment only and nothing ships; no memory or exclusions from an unexplained rejection; shopping only; US dollars only; sensitive reasons left out of saved preferences). Changes the eval's step-1 prompt, so run the eval after this.
-- State: 228 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- The page shows the agent's real step while it waits (`GET /api/progress`, polled once a second): understanding, searching with the queries, ranking, writing the reply.
+- State: 231 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
 - M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode.

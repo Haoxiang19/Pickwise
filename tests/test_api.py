@@ -174,3 +174,12 @@ def test_set_over_the_budget_is_refused_by_the_server(client):
     rank1 = [g["chosen"] if "Chosen over" not in g["chosen"]["reason"] else g["alternatives"][0] for g in groups]
     r = client.post("/api/cart", json={"items": [{"product_id": p["id"]} for p in rank1]})
     assert r.status_code == 400 and "over your budget of $180.00" in r.json()["detail"]
+
+
+# --- Agent progress shown while the page waits ---
+
+def test_progress_endpoint_is_empty_when_idle_and_per_user(client):
+    assert client.get("/api/progress").json() == {"step": ""}
+    store.get_session(client.cookies["uid"]).progress = "Searching the catalog: tents"
+    assert client.get("/api/progress").json() == {"step": "Searching the catalog: tents"}
+    assert TestClient(main.app).get("/api/progress").json() == {"step": ""}  # another browser sees nothing

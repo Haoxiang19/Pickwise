@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 
@@ -358,3 +359,30 @@ def test_bundle_tool_with_one_item_tells_the_model_to_use_recommend():
     result = json.loads(agent.run_tool_call(Session(), call("recommend_bundle", {
         "raw_request": "tent", "budget_usd": 100, "items": [{"name": "tent"}]}), {}))
     assert "call recommend instead" in result["error"]
+
+
+# --- Progress steps reported while the agent works ---
+
+def test_steps_follow_the_real_pipeline_and_are_cleared_at_the_end(monkeypatch):
+    seen = []
+    real = agent.show_step
+    monkeypatch.setattr(agent, "show_step", lambda session, text: (seen.append(text), real(session, text))[1])
+    s = Session()
+    out = agent.handle_message(s, "noise cancelling headphones under $100")
+    assert seen[0] == "Understanding your request" and seen[-1] == "Writing the reply"
+    assert seen[1].startswith("Searching the catalog: noise cancelling headphones")
+    assert re.fullmatch(r"Ranking \d+ products \(3 shuffled rankings\)", seen[2])
+    assert s.progress == ""  # nothing is shown once the reply is back
+    seen.clear()
+    agent.handle_message(s, "I'll take the first one")
+    assert seen == ["Understanding your request", "Checking the current price", "Writing the reply"]
+
+
+def test_progress_is_cleared_even_when_the_agent_fails(monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("model client crashed")
+    monkeypatch.setattr(agent.llm, "ask", boom)
+    s = Session()
+    with pytest.raises(RuntimeError):
+        agent.handle_message(s, "x")
+    assert s.progress == ""

@@ -283,11 +283,16 @@ def pick_top3(ranking: list[dict], candidates: list[dict], n_queries: int) -> li
     return picks
 
 
+def no_step(text: str) -> None:
+    """Default for `on_step`: the eval and the tests do not show progress."""
+
+
 def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.search, seed: int | None = None,
-              inject: list[dict] = ()) -> dict:
+              inject: list[dict] = (), on_step=no_step) -> dict:
     """Run steps 2-5 for one structured request and return what the agent and the page need.
 
     `inject` is for the eval only: hostile listings added in front of the search results.
+    `on_step(text)` is told what the pipeline is about to do, so the page can show real progress.
     """
     queries = request["queries"] if flags["multi_query"] else [request["raw_request"]]
     seed = random.randrange(2**31) if seed is None else seed
@@ -295,6 +300,7 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
     # Every budget has a definite limit (an approximate one was widened in parse_request), so the
     # catalog can always be asked for affordable products. The limit is still enforced by hard_filter.
     cap = budget if flags.get("budget_filter") and budget is not None else None
+    on_step("Searching the catalog: " + ", ".join(queries))
     products = [{**p, "query_index": 0} for p in inject] + search_all(queries, search_fn, cap)
     candidates, rejected = hard_filter(products, budget, request["must_not"])
     if cap is not None:
@@ -304,6 +310,8 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
     shuffles = flags.get("rank_shuffles", 1)
     # F19: memory only reaches the ranker, as soft preferences; hard constraints come from this request alone.
     memories = list(request.get("memory") or []) if flags.get("use_memory") else []
+    if flags["reasoning_rank"] and candidates:
+        on_step(f"Ranking {len(candidates)} products" + (f" ({shuffles} shuffled rankings)" if shuffles > 1 else ""))
     ranking = rank_shuffled(request, candidates, seed, shuffles, memories) if flags["reasoning_rank"] and candidates else []
     picks = pick_top3(ranking, candidates, len(queries))
 
@@ -397,7 +405,8 @@ def _bundle_view(p: dict, r: dict, queries: list[str], memory_text: dict) -> dic
     return {k: p[k] for k in ("id", "title", "brand", "price_cents", "url", "image")} | {"reason": reason, "memory_used": used}
 
 
-def recommend_bundle(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.search, seed: int | None = None) -> dict:
+def recommend_bundle(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.search, seed: int | None = None,
+                     on_step=no_step) -> dict:
     """F22: search and rank each item on its own, then code picks the best set within the total budget.
 
     The model ranks; it never splits the budget or chooses the set. The steps are numbered below
@@ -425,6 +434,7 @@ def recommend_bundle(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catal
     # belongs to the first one, so one set can never hold the same product twice (a cart refuses that).
     seen, candidates = set(), []
     for item, queries in zip(items, item_queries):
+        on_step(f"Searching the catalog for {item['name']}: " + ", ".join(queries))
         found = [p for p in search_all(queries, search_fn, cap) if p["id"] not in seen]
         seen.update(p["id"] for p in found)
         products.extend(found)
@@ -463,6 +473,7 @@ def recommend_bundle(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catal
                         "must_not": request["must_not"], "preferences": request["preferences"]}
         return rank_shuffled(item_request, candidates[i], seeds[i], flags.get("rank_shuffles", 1), memories)
 
+    on_step("Ranking the options for " + ", ".join(item["name"] for item in items))
     with ThreadPoolExecutor(max_workers=len(items)) as pool:  # the calls wait on the network, so threads suffice
         rankings = list(pool.map(rank_item, range(len(items))))
     trace["rankings"] = [[r["id"] for r in ranking] for ranking in rankings]

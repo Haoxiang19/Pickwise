@@ -448,3 +448,22 @@ Result: `items` (name, quantity, chosen, alternatives), `total_cents` (server pr
 **Verified.** The same probes after the change (real model, mock catalog and PayPal): the shipping question got the simulation answer with no tool call; the unexplained rejection got one question and saved nothing, while "I don't want anything from Soundcore, they break too fast" saved the preference and excluded the brand; the poem was declined and "what can you do?" answered; the euro budget got one dollar question; four sensitive-reason messages saved "Always buys sugar-free snacks" (twice), "Only buys halal food" and "Always buys ergonomic chairs". The other probes kept working: no payment by the agent, no price override, 7 items split, cheaper set, unknown order, Chinese reply, nothing under budget. `pytest` covers none of this: the keyless mock does not read the prompt.
 
 **Limits.** One run per probe, on one model; prompt rules are not guarantees. "Only buys halal food" leaves out the stated religion but still implies it; the owner decided (2026-11-11) that such a shopping preference is saved, since the user stated it and can delete it in "What I remember". The rules change the step-1 prompt of the eval, so ask accuracy must be measured after this change.
+
+## Agent progress shown while the page waits (`app/agent.py`, `app/recommend.py`, `app/main.py`, `static/index.html`)
+
+**What it does.** While a chat request runs (about 20 seconds with real services), the page shows the step the agent is really on, such as "Searching the catalog for tent: camping tent, 2 person dome tent..." or "Ranking 20 products (3 shuffled rankings)...".
+
+**Where.** `app/store.py`: `Session.progress`. `app/agent.py`: `show_step`, `TOOL_STEPS`, `MAX_STEP_CHARS`, `handle_message` (now a wrapper around `_run_agent`). `app/recommend.py`: `on_step` parameter of `recommend` and `recommend_bundle`, `no_step`. `app/main.py`: `GET /api/progress`. `static/index.html`: `withProgress`.
+
+**How it works.**
+1. `show_step(session, text)` stores one short string on the session. The agent loop calls it before each model call ("Understanding your request" on the first round, "Writing the reply" on later ones) and `run_tool_call` before a tool from `TOOL_STEPS` (price check, order lookup, refund draft, saving a preference).
+2. `recommend` and `recommend_bundle` take an optional `on_step` callback and call it before searching (with the queries) and before ranking (with the candidate count, or the item names for a set). The agent passes `show_step`; the eval and tests pass nothing, so `no_step` does nothing and results are unchanged.
+3. `handle_message` clears the string in a `finally`, so nothing is shown once the reply is back or if the agent fails.
+4. `GET /api/progress` returns `{"step": ...}` for the cookie user only. It is read-only.
+5. The page's `withProgress` adds a "Working..." bubble, asks `/api/progress` once a second while the chat request is pending and shows the step, then removes the bubble. Text is written with `textContent`, because a step can contain model-written queries.
+
+**Why.** Polling instead of streaming: the agent loop is synchronous, so streaming would need a thread and a queue to bridge it to the response; one string and one GET endpoint are enough and easy to explain. The chat endpoint is a plain `def`, which FastAPI runs in a worker thread, so the progress request is answered while the chat request is still running. Timer-driven fake stages were rejected: the text must come from what the server is doing.
+
+**Verified.** `tests/test_agent.py`: the steps of a recommendation are "Understanding your request", "Searching the catalog: ...", "Ranking N products (3 shuffled rankings)", "Writing the reply", and of a pick "Understanding your request", "Checking the current price", "Writing the reply"; the string is empty afterwards and also after a crash. `tests/test_api.py`: the endpoint is empty when idle and another browser never sees this user's step. By hand with real services (2026-11-12): a three-item set request showed, in order, understanding (1.3 s), one search step per item (3.3, 7.3, 11.3 s), ranking (15.3 s) and writing the reply (20.3 s); the bubble was gone when the reply arrived at 21.2 s.
+
+**Limits.** Polling once a second can skip a step shorter than that and shows a step up to a second late. One string per session: two requests of the same user at once would overwrite each other's step. The filter and the set choice take milliseconds and have no step of their own.

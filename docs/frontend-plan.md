@@ -29,8 +29,9 @@ Whatever changes, these remain visible and unchanged in meaning:
 
 ## Part A: behaviour (no design tool needed)
 
-A1. **Waiting message.** After a message is sent, show "Searching and ranking products... (about 20 seconds)"
-    at once and replace it with the reply. Today the page gives no sign of life for about 20 seconds.
+A1. **Waiting message. DONE 2026-11-12** as real progress instead of a fixed text: the page polls
+    `GET /api/progress` once a second and shows the agent's current step. See `docs/implementation.md`
+    ("Agent progress shown while the page waits"). Part B still has to style the waiting bubble.
 
 A2. **No double send.** Pressing Enter while a request is running sends a second message: only the button
     is disabled, the form still submits. Ignore submits while one is running.
