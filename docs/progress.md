@@ -119,7 +119,7 @@ refuse the request, so a judge can always finish the flow (refusing would break 
 - **PayPal sandbox**: token works; create with line items and `breakdown.item_total` accepted (F21), items read back as sent with a 127-character name cut; the same `PayPal-Request-Id` returned the same order; read-back status `PAYER_ACTION_REQUIRED`; the `payer-action` link is on `www.sandbox.paypal.com`.
 
 ## Found in the real run (not fixed)
-- **Latency**: a recommendation turn took 18-25 seconds (agent call plus 3 parallel ranking calls). Slow for a live demo; `rank_shuffles` 1 would cut ranking calls by two thirds (see Questions).
+- **Latency**: a recommendation turn took 18-25 seconds. Measured on one request (2026-11-11): the 4 capped Channel3 searches run one after another and took 12.0 s, the extra uncapped search 2.9 s, ranking 4.0-4.4 s with 1 shuffle and 4.3-4.8 s with 3 (the shuffles run in parallel), the agent's first call 2.2 s. So searching, not ranking, is the bottleneck: `rank_shuffles` 1 saves two thirds of the ranking cost but almost no time. Running the searches in parallel would remove most of the wait (not done; needs the owner's OK).
 - **Preference scope**: "I always buy Nike" was saved as "Always buys Nike shoes." during a running-shoe conversation, although the prompt says to keep the user's scope.
 
 ## Not verified (needs real services)
