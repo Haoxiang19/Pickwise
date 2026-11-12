@@ -38,6 +38,21 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode.
 - P2 "multiple items per order" is done in keyless mode as F21 (multi-item cart, PayPal line items), F22 (set recommendation) and F23 (refund by line), in 5 commits. The work order `docs/multi-item-plan.md` was deleted on 2026-11-11 after completion, as it asked; what was built is in `docs/implementation.md`, the research in `docs/decisions.md`, and the file remains in git history.
 
+## To do: make every feature visible on the page (owner approved the list, 2026-11-11; not started)
+Found in the real run: a recommendation takes about 20 seconds with no feedback, and order status, refunds, sets
+and preferences can only be reached by typing the right sentence. Only `static/index.html` changes; no new
+endpoint, and payment and refund safety is untouched.
+1. **Waiting message**: right after a message is sent, show "Searching and ranking products... (about 20 seconds)"
+   and replace it with the reply.
+2. **Entry points**:
+   - example buttons under the input that send `a tent, a sleeping bag and a lantern under $300`,
+     `I always buy Sony` and `my orders`;
+   - on an order card, "Refund this item" per line and "Refund the rest", which send
+     `refund item N of order X` / `refund order X` to the chat, so the agent still drafts every refund (F16, F23)
+     and money moves only on Confirm refund.
+3. **Success page note**: say this is a sandbox simulation and nothing ships, and that the order can be checked or
+   refunded from the chat or the buttons.
+
 ## Next steps for the owner (in order)
 1. Put keys in `.env` (copy `.env.example`; never commit it): `LLM_*`, `CHANNEL3_API_KEY`, `PAYPAL_CLIENT_ID/SECRET`. For DeepSeek set `LLM_EXTRA_BODY={"thinking": {"type": "disabled"}}`. Note: the app reads environment variables only; it does not load `.env` by itself (no extra dependency). Export them in the shell, or use `uvicorn --env-file .env` (needs the `python-dotenv` package, not installed).
 2. Check Channel3 with one real search, **before building the eval snapshot** (the snapshot stores normalized products, so a mapping bug would be baked into it). Print one raw response and confirm:
