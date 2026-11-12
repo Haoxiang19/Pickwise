@@ -1,0 +1,31 @@
+# Render Blueprint: New > Blueprint > pick this repository. Render asks for every value marked `sync: false`;
+# secrets are typed into Render, never committed.
+services:
+  - type: web
+    name: pickwise
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # One worker: sessions, carts and the double-charge lock live in this process (see README, Known limitations).
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/status
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: LLM_BASE_URL
+        value: https://api.deepseek.com
+      - key: LLM_MODEL
+        value: deepseek-flash
+      - key: LLM_EXTRA_BODY
+        value: '{"thinking": {"type": "disabled"}}'
+      - key: LLM_API_KEY
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      # The service's own URL, e.g. https://pickwise.onrender.com; PayPal sends the buyer back here.
+      - key: APP_BASE_URL
+        sync: false

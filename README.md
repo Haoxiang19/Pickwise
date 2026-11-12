@@ -107,7 +107,13 @@ Tests: `.venv/bin/python -m pytest`
 
 ### Deploy on Render
 
-Start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, one worker (sessions and carts are in memory), and `APP_BASE_URL` set to the service URL.
+The repository has a Render Blueprint, [`render.yaml`](render.yaml): a free Python web service, start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT` with one worker (sessions and carts are in memory).
+
+1. On Render: New > Blueprint, and pick this repository.
+2. Enter the values Render asks for: `LLM_API_KEY`, `CHANNEL3_API_KEY`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `APP_BASE_URL`. The model URL and name are set in `render.yaml`; change them there to use another provider.
+3. After the first deploy, set `APP_BASE_URL` to the service URL (for example `https://pickwise.onrender.com`) and deploy again. PayPal sends the buyer back to this URL.
+
+Any variable left empty makes that service run as a labelled mock.
 
 ## Known limitations
 
@@ -121,7 +127,8 @@ Start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, one worker (se
 - Merchant buy links are not shown, so no affiliate commission is earned.
 - The keyless mock agent understands only simple phrasings; it exists so the flow can be demonstrated without keys.
 - The double-charge lock assumes a single worker process.
-- Not yet verified against the real services: Channel3 field names and price unit, function calling on the chosen model, and a real sandbox payment.
+- Checked against the real services on 2026-11-12 (Channel3 search, DeepSeek `deepseek-flash` function calling, and a PayPal sandbox payment from a local run); the deployed instance is checked separately after each deploy.
+- The chat page keeps the current conversation in the browser's local storage, so it survives the PayPal round trip and a reload, but not a change of browser.
 
 ## Design basis
 
