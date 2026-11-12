@@ -2,90 +2,51 @@
 
 Pickwise is a shopping agent I built for the PayPal AI Hackathon 2026. You tell it what you want and how much you can spend. It suggests three products, says why it picked each one, and lists the ones it left out. You pay for the one you choose through the PayPal sandbox, and you can check the order or refund it later.
 
-## How it works
+## What it does
 
-```
-user message
-  -> 1. Understand (model, tool call)   budget, must-have, must-not, preferences, 3-4 search queries
-                                        or one question if the budget is missing
-  -> 2. Search (code)                   10 results per query, merged and de-duplicated;
-                                        capped at the budget when the user gave a firm maximum,
-                                        plus one uncapped search to show what was ruled out
-  -> 3. Hard filter (code)              over budget / out of stock / no USD offer / must-not keyword, with reasons
-  -> 4. Rank (model)                    reason first, then a JSON ranking of product IDs;
-                                        candidates shuffled 3 times, rankings combined by mean rank
-  -> 5. Pick top 3 (code)               at most one per search query when there are 3+ queries
-  -> 6. Reply (model)
-```
+- **Three picks, each with a reason.** The model turns your request into 3 to 4 searches on Channel3. Code removes anything over budget, out of stock or matching what you said you don't want, and the model ranks the rest (three shuffled passes, averaged). Products it ruled out are listed with the reason. No budget given? It asks for one first.
+- **A set under one budget.** "A smart mug, a notebook and a candle under $200": each item is searched and ranked on its own, and code picks the best combination that fits the total. You can swap any item before paying.
+- **Pay only when you click.** The server prices the cart in cents. Confirm creates a PayPal order; after you approve it on PayPal, the server reads the order back, checks the amount, and only then captures.
+- **Orders and refunds.** Check your orders on the Orders page or in the chat. A refund can be for one line or the whole order; the agent drafts it and nothing is sent until you click Confirm refund.
+- **Remembers what you like.** Lasting preferences ("I prefer balsam and cedar scents") are saved, used as soft hints in later conversations, and named in the reason when they matter. You can see and delete them in "What I remember".
+- **Works without keys.** With no API keys, the model, the catalog and PayPal each switch to a labelled mock, so the whole flow can be clicked through.
 
-- The agent loop is written by hand (no agent framework): `app/agent.py`.
-- All model calls go through one OpenAI-compatible client, so the provider is a config change: `app/llm.py`.
-- **Sets of products** ("a tent, a sleeping bag and a lantern under $300"): each item is searched and ranked on its own, and code, not the model, picks the set with the best ranks whose total fits the budget (it tries every combination of each item's top options, at most 6 items x 6 options). If even the cheapest set is over budget, nothing is ranked and the user is told what the cheapest set costs. The user can swap items and pay for the whole set in one PayPal order, which lists each product as a line item. Set recommendation has no eval numbers: the eval covers single-product requests only.
-- The ranker sees only the title, price, brand and the first 200 characters of each product's description.
-- Saved preferences (for example "Prefers Sony") have a strength: 0.5 when the user states one, 0.2 when it is inferred from a purchase, +0.1 each time it is confirmed and -0.2 each time it is contradicted. At the start of a new conversation the 3 strongest go to the ranker as soft preferences, and the reason names the one it used. Users can view and delete them in "What I remember".
+## Safety
 
-The approaches compared for each choice are in [docs/decisions.md](docs/decisions.md); what was actually built is in [docs/implementation.md](docs/implementation.md).
+The model can never move money. It can search, recommend, prepare a cart and draft a refund; creating a PayPal order, capturing and refunding happen only in HTTP endpoints after a user click.
 
-## Safety design
+- Prices and the budget are checked by the server in integer cents; the model only picks product IDs from the current search.
+- Before capture, the order is read back from PayPal and captured only if it is approved and the amount matches.
+- Create, capture and refund requests carry a fixed `PayPal-Request-Id`, so a repeated click or reload never charges twice.
 
-The model can never move money.
+## Built with
 
-| Tier | Actions | Triggered by |
-| --- | --- | --- |
-| Read-only | search and recommend, list orders | the model |
-| Proposal | prepare a cart, draft a refund, remember a preference | the model proposes; carts and refunds do nothing until the user clicks |
-| Money | create PayPal order, capture, refund | HTTP endpoints, only after a user click |
+- **PayPal Developer Platform** (sandbox): Orders v2 to create an order with one line item per product, read it back and capture it; Payments v2 to refund one line at a time.
+- **Channel3**: product search.
+- **DeepSeek** (`deepseek-flash`): understands the request, ranks the products and writes the replies. Any OpenAI-compatible model works; every call goes through one client, [`app/llm.py`](app/llm.py).
+- **Render**: hosting, set up in [`render.yaml`](render.yaml).
+- **Python, FastAPI, SQLite**, and one static HTML page with plain JavaScript. The agent loop is written by hand in [`app/agent.py`](app/agent.py), without an agent framework.
 
-- Prices are computed by the server in integer cents; the model picks products by ID only. Only products returned by a search in the current session can be ordered.
-- Before a cart is priced, the product is read back from the catalog, so the amount charged is a confirmed current price rather than a stored search result. A price that moved is shown to the user; a product that sold out or disappeared cannot be ordered.
-- The budget is checked in code (hard filter and cart), not by the prompt. An approximate budget ("around $70") is widened by a fixed 20% in code.
-- Before capture the order is read back from PayPal: capture only if it is `APPROVED` and the amount and currency equal the confirmed order. Paid only when the capture status is `COMPLETED`.
-- No double charge: buttons disable on click, local status checks (capture only from `CREATED`, refund only from a paid order and only for lines not refunded yet), a lock per order around its money steps, and deterministic `PayPal-Request-Id` values (`create-{cart}`, `capture-{order}`, `refund-{order}-{line}`).
-- Product titles and descriptions are treated as untrusted data; the ranking prompt says so, and the eval injects hostile listings to test it.
-
-## PayPal APIs used (sandbox, `https://api-m.sandbox.paypal.com`)
-
-| Purpose | Endpoint |
-| --- | --- |
-| Access token | `POST /v1/oauth2/token` |
-| Create order (redirect flow, `payment_source.paypal.experience_context`, one line item per product with `item_total`) | `POST /v2/checkout/orders` |
-| Read the order back before capture | `GET /v2/checkout/orders/{id}` |
-| Capture | `POST /v2/checkout/orders/{id}/capture` |
-| Refund, one order line per call with its amount | `POST /v2/payments/captures/{capture_id}/refund` |
-
-Product search: Channel3 (`POST https://api.trychannel3.com/v1/search`).
+Design notes: [docs/decisions.md](docs/decisions.md) (what was compared) and [docs/implementation.md](docs/implementation.md) (what was built).
 
 ## Evaluation
 
-`python -m eval.run_eval --name full` runs everything and prints the table. Details: [eval/README.md](eval/README.md).
+[`eval/run_eval.py`](eval/run_eval.py) runs 31 test requests against a saved Channel3 snapshot ([`eval/snapshot.json`](eval/snapshot.json)), so every version sees the same products. Run on 2026-11-12 with DeepSeek `deepseek-flash` at temperature 0; versions that call the model ran 3 times and are averaged. 24 requests are ranked (5 give no budget, 2 were not turned into a search).
 
-- **Test set**: 31 requests, last changed on 2026-11-11, before the search snapshot was taken (2026-11-12): 12 clear, 6 gift or vague, 5 missing budget, 4 adversarial (3 hostile listings each: hidden instructions, fake reviews, fake "real price"), 4 cross-conversation preference tests.
-- **Metrics**, all computed automatically: constraint satisfaction, grounding, over-budget count, injection resistance, preference adherence, latency and cost.
+| Version | Full top 3 | Hostile listings kept out | Top pick matches saved preference | Model calls per request |
+| --- | --- | --- | --- | --- |
+| Baseline: one search with the raw words | 17 / 24 | 0% | 0% | 0 |
+| + multi-query search | 24 / 24 | 0% | 25% | 0 |
+| + reasoning rank | 24 / 24 | 100% | 25% | 1 |
+| + 3 shuffles | 24 / 24 | 100% | 25% | 3 |
+| reasoning rank + budget filter | 24 / 24 | 100% | 25% | 1 |
+| reasoning rank + memory | 4 / 4 | - | 50% | 1 |
 
-### Results
+- Every version stayed within budget and recommended only real search results, because the hard filter runs in code before ranking.
+- Multi-query search fills the top 3; reasoning rank keeps hostile listings out (they are placed first, so search order alone always shows them); memory raised preference matches from 25% to 50% (4 requests, a small sample).
+- 3 shuffles and the budget filter changed none of these numbers, and 3 shuffles cost three times the model calls.
 
-Run on 2026-11-12. Model for step 1 and ranking: DeepSeek `deepseek-flash` (thinking disabled), temperature 0.0. Catalog: Channel3, replayed from [`eval/snapshot.json`](eval/snapshot.json) (created 2026-11-12), so every version sees the same products. Versions that call the model ran 3 times (seeds 101, 202, 303) and are averaged; the others ran once.
-
-24 of the 31 requests are ranked: the 5 missing-budget requests give no budget to rank against, and 2 gift requests (`g03`, `g04`) were skipped because step 1 asked a question instead of producing a search request.
-
-| Version | Full top 3 | Constraints | Grounding | Over-budget | Injection resistance | Memory adherence | Sec / request | Model calls | Tokens |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Baseline | 17 / 24 | 100% | 100% | 0 | 0% | 0% | - | 0 | 0 |
-| + multi-query search | 24 / 24 | 100% | 100% | 0 | 0% | 25% | - | 0 | 0 |
-| + reasoning rank | 24 / 24 | 100% | 100% | 0 | 100% | 25% | 3.97 | 1 | 2,242 |
-| + multi-shuffle (3) | 24 / 24 | 100% | 100% | 0 | 100% | 25% | 4.60 | 3 | 6,740 |
-| + budget filter | 24 / 24 | 100% | 100% | 0 | 100% | 25% | 3.96 | 1 | 2,500 |
-| + memory (preference tests only) | 4 / 4 | 100% | 100% | 0 | - | 50% | 3.82 | 1 | 2,509 |
-
-*Baseline* is one search with the user's raw words, kept in search order; each row adds one step to the row above, except *+ budget filter* and *+ memory*, which each add one step to *+ reasoning rank*. *Full top 3* counts requests that got three recommendations. *Injection resistance* is over the 4 adversarial requests, *memory adherence* over the 4 preference requests (top pick matches the saved preference). Time, calls and tokens are per request for the ranking steps only; searches are replayed from the snapshot, so search time is not included.
-
-What the numbers say, and what they do not:
-
-- **Multi-query search fills the top 3.** One search with the user's raw words returned fewer than three usable products for 7 of 24 requests (none at all for 3); 3 to 4 generated queries gave three for every request.
-- **Constraints, grounding and over-budget are perfect in every version** because the hard filter runs in code before any ranking. They confirm the safety design; they do not separate the versions.
-- **Reasoning rank kept every hostile listing out of the top 3** in all runs. The search-order versions show 0% only because the hostile listings are placed first (worst case), not because they "chose" them.
-- **Memory:** with the saved preference on, the top pick matched it in 50% of runs, against 25% without (4 requests x 3 runs: a small sample).
-- **Multi-shuffle and the budget filter show no difference on these metrics**, while multi-shuffle triples model calls and tokens. None of these metrics measures how relevant the picks are, so this run cannot say whether either one improves them.
+More detail in [eval/README.md](eval/README.md).
 
 ## Run locally
 
