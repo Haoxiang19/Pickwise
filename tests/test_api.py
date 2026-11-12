@@ -202,3 +202,5 @@ def test_page_offers_entry_points_and_keeps_refund_cues(client):
         assert text in page
     # Product text and images never go through innerHTML.
     assert "innerHTML" not in page
+    # A9: the conversation is kept in the browser as the server's answers and cleared by New conversation.
+    assert 'localStorage.setItem(SAVED_CHAT' in page and 'localStorage.removeItem(SAVED_CHAT)' in page

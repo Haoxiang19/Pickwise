@@ -527,3 +527,21 @@ Result: `items` (name, quantity, chosen, alternatives), `total_cents` (server pr
 **Verified.** `tests/test_api.py`: `test_order_list_shows_only_this_users_orders` (a placed order is listed for its user, not for another cookie); `test_page_offers_entry_points_and_keeps_refund_cues` now checks the new example texts and `/api/orders`; `test_page_states_concierge_simulation_and_trust_cues` still passes; full `pytest` 235 passed. By hand in keyless mode (2026-11-12), with screenshots: first visit, budget question, agent working, three picks with Ruled out, order summary, mock PayPal, cancelled, a set with Review this set, paid, refund draft, partly refunded, order list in the chat, an error, the Orders and What I remember views, and the page at 375 px with no horizontal scroll. Impeccable finish review (separate reviewer, 2026-11-12): verdict "fix" with 8 items; 7 applied (tile text contrast, phone top pick, × notation, comments, corner and scrollbar tokens, contract text), "Ruled out open by default" withdrawn because F6 asks for an expandable list; the verdict pass returned "ship". The three example requests were run through the mock agent and the preference showed in the reasons of both gift examples in a new conversation.
 
 **Limits.** Not checked with real Channel3 pictures in the new tiles, nor with real PayPal after the restyle. The mock PayPal page is server-rendered and not restyled. The chat is still cleared by the PayPal round trip (frontend plan A9). The Orders view shows at most 20 orders.
+
+## Conversation kept across the PayPal round trip (frontend plan A9) (`static/index.html`)
+
+**What it does.** Keeps the current conversation on screen after the page leaves for PayPal and comes back, and after a reload. New conversation clears it. Page only; no endpoint was added.
+
+**Where.** `static/index.html`: `SAVED_CHAT`, `saved`, `record`, `draw`, `send`, the Choose / Review this set / Confirm refund / Details handlers, the New conversation handler, and the start-up code that redraws and then handles `?order_id=`.
+
+**How it works.**
+1. Everything the chat shows comes from server answers. Instead of drawing them directly, the page calls `record(entry)`: it appends the entry (`user` text, `chat` reply data, `summary` cart, or `order`) to `saved`, writes `saved` as JSON to `localStorage`, and then calls `draw(entry)`.
+2. `draw` uses the existing functions (`showRecommendations`, `showSummary`, `showOrder`, ...), which build elements with `textContent` only, so redrawn text is never parsed as HTML.
+3. On load, the page reads `saved` and draws each entry in order. If it came back from PayPal with `?order_id=`, it then fetches that order, records it as a new agent turn under the conversation, and removes `?order_id` from the address so a later reload does not add the card twice.
+4. New conversation empties `saved` and removes the key. Any storage error is ignored: the page works as before, it just forgets on reload.
+
+**Why.** The page used to start empty after PayPal, so the request, the picks and the summary disappeared in the middle of the flow. Saving the server's answers in the browser was chosen over a `GET /api/history` endpoint because the server keeps only the chat text, not the cards, and loses everything when the Render instance restarts; the owner agreed. A list of past conversations was considered and not built (not in the requirements; a judge tries the app once).
+
+**Verified.** `tests/test_api.py` checks that the page saves under `SAVED_CHAT` and clears it. By hand in keyless mode: example request, Choose, Confirm and pay, approve on the mock PayPal page; back on `/` the request, three picks, summary and a new Paid card were all shown, the address had no `order_id`; a reload showed the same with one order card; New conversation left an empty chat, the examples and no saved key. Full `pytest` 235 passed.
+
+**Limits.** Kept per browser, not per user: another browser or cleared site data starts empty. Redrawn cards are as they were when recorded (a chosen tile is not re-marked, an old order card keeps its old status and buttons; the server still refuses a second payment or refund). If the server restarted, the screen can show a conversation the agent no longer has.

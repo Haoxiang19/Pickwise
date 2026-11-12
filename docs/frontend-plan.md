@@ -1,6 +1,6 @@
 # Frontend work list (`static/index.html`)
 
-Status: written 2026-11-11. **Part A is done except A9 (2026-11-12); Part B: B1 and B3 done, B2 skipped (2026-11-12).** One static HTML file with vanilla JavaScript stays the
+Status: written 2026-11-11. **Part A is done (A9 on 2026-11-12); Part B: B1 and B3 done, B2 skipped (2026-11-12).** One static HTML file with vanilla JavaScript stays the
 rule (`CLAUDE.md`). When an item is done, its facts move to `docs/implementation.md` and it is ticked here.
 
 The list has two parts, because they are done by different means:
@@ -57,7 +57,7 @@ A7. [done] **Product images.** Recommendations and set options carry an `image` 
 A8. [done] **Errors read as errors.** Failures are shown as a normal bot bubble starting with "Error:". Give them
     their own class so they can be styled as errors in Part B, and keep the server's message.
 
-A9. **Chat survives the PayPal round trip (optional, needs one endpoint).** After paying, the page reloads
+A9. [done 2026-11-12 in the page only, kept in the browser's localStorage; no endpoint, see `docs/implementation.md`] **Chat survives the PayPal round trip.** After paying, the page reloads
     and the conversation is gone from the screen, although the server still has it. Restoring it needs a
     read-only `GET /api/history`. Not page-only, so it needs the owner's OK; skip if time is short.
 

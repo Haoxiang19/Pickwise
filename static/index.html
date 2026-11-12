@@ -372,7 +372,7 @@ function showRecommendations(data) {
         c.classList.toggle("chosen", c === card);
         c.querySelector(".buy button").textContent = c === card ? "Chosen" : "Choose";
       }
-      try { showSummary(await api("/api/cart", {product_id: r.id, quantity: 1})); }
+      try { record({kind: "summary", cart: await api("/api/cart", {product_id: r.id, quantity: 1})}); }
       catch (err) { showError(err); }
     };
   });
@@ -431,7 +431,7 @@ function showBundle(set) {
     review.onclick = async () => {
       const items = groups.map(g => ({product_id: g.group.querySelector("input:checked").value, quantity: g.quantity}));
       // The server prices the cart and refuses a set over the budget; its message is shown as is.
-      try { showSummary(await api("/api/cart", {items})); }
+      try { record({kind: "summary", cart: await api("/api/cart", {items})}); }
       catch (err) { showError(err); }
     };
   }
@@ -522,7 +522,7 @@ function showOrderList(orders) {
     const chip = top.appendChild(el("span", STATUS_LABEL[o.status] || o.status, "chip"));
     chip.dataset.status = o.status;
     top.appendChild(el("span", dollars(o.amount_cents), "num"));
-    li.appendChild(el("button", "Details", "link")).onclick = () => showOrder(o);
+    li.appendChild(el("button", "Details", "link")).onclick = () => record({kind: "order", order: o});
     li.appendChild(el("span", o.items.map(i => i.quantity + " × " + i.title + (i.refunded ? " (refunded)" : "")).join(", "), "items"));
   }
 }
@@ -545,7 +545,7 @@ function showRefundDraft(draft) {
   button.onclick = async () => {
     button.disabled = true;  // one click only; the server also refuses a line that was already refunded
     const body = {lines: draft.lines.map(l => l.line)};  // exactly the lines this draft showed
-    try { showOrder(await api("/api/orders/" + encodeURIComponent(draft.order_id) + "/refund", body)); }
+    try { record({kind: "order", order: await api("/api/orders/" + encodeURIComponent(draft.order_id) + "/refund", body)}); }
     catch (err) { showError(err); }
   };
 }
@@ -562,16 +562,40 @@ async function withProgress(request) {
   try { return await request; } finally { clearInterval(timer); waiting.remove(); }
 }
 
+// The current conversation is kept in this browser so it survives the PayPal round trip and a reload.
+// It is saved as the server's answers, not as HTML, and redrawn with the same functions (textContent only).
+// New conversation clears it. Saving is best effort: without storage the page still works, it just forgets.
+const SAVED_CHAT = "pickwise-chat";
+let saved = [];
+function record(entry) {
+  saved.push(entry);
+  try { localStorage.setItem(SAVED_CHAT, JSON.stringify(saved)); } catch (err) { /* storage off or full */ }
+  draw(entry);
+}
+function draw(entry) {
+  if (entry.kind === "user") {
+    log.appendChild(el("div", entry.text, "user")).scrollIntoView({block: "end"});
+    agentTurn();
+  } else if (entry.kind === "chat") {
+    const data = entry.data;
+    add(el("p", data.reply, "reply"));
+    if (data.recommendations) showRecommendations(data);
+    if (data.bundle) showBundle(data.bundle);
+    if (data.cart) showSummary(data.cart);
+    if (data.orders) data.orders.length > 1 ? showOrderList(data.orders) : data.orders.forEach(o => showOrder(o));
+    if (data.refund_draft) showRefundDraft(data.refund_draft);
+  } else if (entry.kind === "summary") {
+    showSummary(entry.cart);
+  } else if (entry.kind === "order") {
+    if (entry.newTurn) agentTurn();
+    showOrder(entry.order);
+  }
+}
+
 async function send(text) {
-  log.appendChild(el("div", text, "user")).scrollIntoView({block: "end"});
-  agentTurn();
+  record({kind: "user", text});
   const data = await withProgress(api("/api/chat", {message: text}));
-  add(el("p", data.reply, "reply"));
-  if (data.recommendations) showRecommendations(data);
-  if (data.bundle) showBundle(data.bundle);
-  if (data.cart) showSummary(data.cart);
-  if (data.orders) data.orders.length > 1 ? showOrderList(data.orders) : data.orders.forEach(o => showOrder(o));
-  if (data.refund_draft) showRefundDraft(data.refund_draft);
+  record({kind: "chat", data});
   if (data.memory_changed) loadMemory();
 }
 
@@ -666,6 +690,8 @@ async function loadMemory() {
 document.getElementById("new-chat").onclick = async () => {
   await api("/api/conversation/new", {});
   showView("chat");
+  saved = [];
+  try { localStorage.removeItem(SAVED_CHAT); } catch (err) { /* nothing saved */ }
   log.textContent = "";
   welcome.hidden = false;
   agentTurn();
@@ -674,12 +700,17 @@ document.getElementById("new-chat").onclick = async () => {
 
 loadMemory();
 
+// Redraw the saved conversation, then add the order the user just came back from PayPal for.
+try { saved = JSON.parse(localStorage.getItem(SAVED_CHAT)) || []; } catch (err) { saved = []; }
+for (const entry of saved) draw(entry);
+if (saved.length) welcome.hidden = true;
+
 const returnedOrder = new URLSearchParams(location.search).get("order_id");
 if (returnedOrder) {
   welcome.hidden = true;
-  agentTurn();
-  api("/api/orders/" + encodeURIComponent(returnedOrder)).then(o => showOrder(o))
-    .catch(showError);
+  history.replaceState(null, "", "/");  // a later reload must not add the same order card again
+  api("/api/orders/" + encodeURIComponent(returnedOrder)).then(o => record({kind: "order", order: o, newTurn: true}))
+    .catch(err => { agentTurn(); showError(err); });
 }
 
 api("/api/status").then(s => {
