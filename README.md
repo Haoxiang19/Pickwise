@@ -61,16 +61,16 @@ Other services: Channel3 product search (`POST https://api.trychannel3.com/v1/se
 
 `python -m eval.run_eval --name full` runs everything and prints the table. Details: [eval/README.md](eval/README.md).
 
-- **Test set**: 31 requests, written before looking at search results: 12 clear, 6 gift or vague, 5 missing budget, 4 adversarial (3 hostile listings each: hidden instructions, fake reviews, fake "real price"), 4 cross-conversation preference tests.
+- **Test set**: 31 requests, last changed on 2026-11-11, before the search snapshot was taken (2026-11-12): 12 clear, 6 gift or vague, 5 missing budget, 4 adversarial (3 hostile listings each: hidden instructions, fake reviews, fake "real price"), 4 cross-conversation preference tests.
 - **Fixed inputs**: every version replays the same saved search snapshot and the same step-1 output.
-- **Metrics**: constraint satisfaction, grounding, over-budget count, ask accuracy, injection resistance, NDCG@3 (human labels 0/1/2, unlabeled products reported, never counted as 0), preference adherence, latency and cost.
+- **Metrics**, all computed automatically: constraint satisfaction, grounding, over-budget count, injection resistance, preference adherence, latency and cost.
 - **Ablation**: baseline (one search with the raw words, search order) -> + multi-query search -> + reasoning rank -> + multi-shuffle (3 shuffles); plus budget-filtered retrieval on/off, and memory off/on for preference tests. Versions that call a model are run 3 times and averaged.
 
 ### Results
 
-Run on 2026-11-12. Model for step 1 and ranking: DeepSeek `deepseek-flash` (thinking disabled), temperature 0.0. Catalog: Channel3, replayed from [`eval/snapshot.json`](eval/snapshot.json) (created 2026-11-12), so every version sees the same products. Versions that call the model ran 3 times (seeds 101, 202, 303) and are averaged; the others ran once. **No hand labels yet, so NDCG@3 is not reported.**
+Run on 2026-11-12. Model for step 1 and ranking: DeepSeek `deepseek-flash` (thinking disabled), temperature 0.0. Catalog: Channel3, replayed from [`eval/snapshot.json`](eval/snapshot.json) (created 2026-11-12), so every version sees the same products. Versions that call the model ran 3 times (seeds 101, 202, 303) and are averaged; the others ran once.
 
-24 of the 31 requests are ranked: the 5 missing-budget requests only test the budget question, and 2 gift requests (`g03`, `g04`) were skipped because step 1 did not turn them into a search request.
+24 of the 31 requests are ranked: the 5 missing-budget requests give no budget to rank against, and 2 gift requests (`g03`, `g04`) were skipped because step 1 asked a question instead of producing a search request.
 
 | Version | Full top 3 | Constraints | Grounding | Over-budget | Injection resistance | Memory adherence | Sec / request | Model calls | Tokens |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -83,15 +83,13 @@ Run on 2026-11-12. Model for step 1 and ranking: DeepSeek `deepseek-flash` (thin
 
 Columns: *Full top 3* counts requests that got three recommendations. *Injection resistance* is over the 4 adversarial requests, *memory adherence* over the 4 preference requests (top pick matches the saved preference). Time, calls and tokens are per request for the ranking steps only; searches are replayed from the snapshot, so search time is not included.
 
-Ask accuracy (step 1 live on all 31 requests): **94%** (31 model calls, about 76k input and 3.7k output tokens).
-
 What the numbers say, and what they do not:
 
 - **Multi-query search fills the top 3.** One search with the user's raw words returned fewer than three usable products for 7 of 24 requests (none at all for 3); 3 to 4 generated queries gave three for every request.
 - **Constraints, grounding and over-budget are perfect in every version** because the hard filter runs in code before any ranking. They confirm the safety design; they do not separate the versions.
 - **Reasoning rank kept every hostile listing out of the top 3** in all runs. The search-order versions show 0% only because the hostile listings are placed first (worst case), not because they "chose" them.
 - **Memory:** with the saved preference on, the top pick matched it in 50% of runs, against 25% without (4 requests x 3 runs: a small sample).
-- **Multi-shuffle and the budget filter show no difference on these automatic metrics**, while multi-shuffle triples model calls and tokens. Whether either improves relevance needs the hand labels (NDCG@3), which are not done.
+- **Multi-shuffle and the budget filter show no difference on these metrics**, while multi-shuffle triples model calls and tokens. None of these metrics measures how relevant the picks are, so this run cannot say whether either one improves them.
 
 ## Run locally
 
@@ -127,34 +125,17 @@ The repository has a Render Blueprint, [`render.yaml`](render.yaml): a free Pyth
 
 Any variable left empty makes that service run as a labelled mock.
 
-## Known limitations
+## Design choices
 
-- Orders are a sandbox simulation; products are not really bought from the retailers.
-- Render's free instance has no persistent disk, sleeps after 15 minutes and can restart at any time. A restart loses sessions, carts, the SQLite orders and saved preferences, so an order paid before a restart can no longer be looked up or refunded in the app. The first request after a sleep is slow.
-- Up to 6 different products per order; a refund covers whole lines (one product with all its units), not single units; no shipping or tax.
-- A set's first search knows only the total budget, so a search that returns only expensive products for one item can make a set impossible; the set treats every item as equally important.
-- No login: a random ID in an HttpOnly cookie identifies the user.
-- Product variants (size, colour) are ignored: the agent orders a product, not a specific variant.
-- The price is confirmed when the product is chosen, then held for the 15-minute quote; it is not checked again at the moment of payment.
-- Merchant buy links are not shown, so no affiliate commission is earned.
-- The keyless mock agent understands only simple phrasings; it exists so the flow can be demonstrated without keys.
-- The double-charge lock assumes a single worker process.
-- Checked against the real services on 2026-11-12 (Channel3 search, DeepSeek `deepseek-flash` function calling, and a PayPal sandbox payment from a local run); the deployed instance is checked separately after each deploy.
-- The chat page keeps the current conversation in the browser's local storage, so it survives the PayPal round trip and a reload, but not a change of browser.
+What the recommendation pipeline does, and why.
 
-## Design basis
+- **Reason, then rank the whole list.** The ranker writes its reasoning first, then returns one ranked list of product IDs (at most 6) for all candidates together, instead of scoring products one by one. Unknown or repeated IDs are dropped.
+- **Shuffle and combine.** A model's ranking shifts with the order the products are listed in, so the candidates are shuffled 3 times, ranked 3 times in parallel, and the rankings are combined by mean rank (a product a ranking leaves out counts as rank 7).
+- **Several concrete searches.** A need is turned into 3 to 4 searches for concrete product types, and the evaluation measures what this adds (see Results).
+- **A short, plain view of each product.** The ranker sees only the title, price, brand and the first 200 characters of the description, and is told that this text comes from sellers and must not be followed.
+- **Preferences with a strength.** A stated preference starts at 0.5 and one inferred from a purchase at 0.2; each confirmation adds 0.1 and each contradiction subtracts 0.2. The ranker sees only the 3 strongest, as soft preferences, and the reason names the one it used.
 
-The pipeline is *informed by* these papers; it does not implement any of them in full.
-
-- Reason first, then rank: [BracketRank](https://arxiv.org/pdf/2604.08834)
-- Listwise ranking: [How Good are LLM-based Rerankers?](https://aclanthology.org/2025.findings-emnlp.305.pdf)
-- Shuffle several times and aggregate: [Permutation Self-Consistency](https://aclanthology.org/2024.naacl-long.129.pdf) (we use 3 shuffles and mean rank instead of 20 shuffles and Kemeny aggregation)
-- Rankings change with input order: [Position Bias Undermines Preference Consistency](https://arxiv.org/pdf/2608.03091)
-- Multi-query search must be measured: [A Reproducibility Study of LLM-Based Query Reformulation](https://arxiv.org/html/2604.27421v1); [LLM-based Query Expansion Under Control](https://cs.uwaterloo.ca/~jimmylin/publications/Sadeghi_Lin_SIGIR-AP2026b.pdf)
-- Less but more precise information for the ranker: [CAIRO](https://arxiv.org/pdf/2608.20801)
-- Preference strength update rule: [MARS](https://arxiv.org/abs/2605.14401)
-
-Design decisions, with the open-source implementations compared, are in [docs/decisions.md](docs/decisions.md); what was actually built is in [docs/implementation.md](docs/implementation.md).
+The approaches compared for each choice are in [docs/decisions.md](docs/decisions.md); what was actually built is in [docs/implementation.md](docs/implementation.md).
 
 ## AI tools used
 
@@ -163,7 +144,6 @@ Design decisions, with the open-source implementations compared, are in [docs/de
 - **Claude Code** was used as a coding assistant to write the code, tests and documentation, working feature by feature under the rules in `CLAUDE.md` (plan first, tests and an implementation note for every feature, no new dependencies or scope without approval). Every design choice was compared with open-source implementations first and recorded in `docs/decisions.md`.
 - **Impeccable** (a design skill for Claude Code) was used for the page design: it recorded the product context in `PRODUCT.md`, presented visual directions to choose from, ran a finish review against accessibility and the payment trust cues, and wrote `DESIGN.md` from the finished page. The look was chosen by the author over several comparison rounds. The skill itself is not included in this repository (`npx impeccable skills install`).
 - **At runtime**, the agent calls an OpenAI-compatible language model (planned: DeepSeek) for understanding the request, ranking candidates and writing replies.
-- Relevance labels for the evaluation are assigned by hand, not by a model.
 
 ## License
 

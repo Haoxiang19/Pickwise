@@ -6,7 +6,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    # One worker: sessions, carts and the double-charge lock live in this process (see README, Known limitations).
+    # One worker: sessions, carts and the double-charge lock live in this process.
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/status
     envVars:
