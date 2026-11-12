@@ -215,7 +215,8 @@ def test_the_widened_budget_is_the_only_limit_used():
         return [product("ok", price=5500), product("over", price=6500)]
 
     out = rec.recommend(request, BUDGET_FLAGS, search)
-    assert seen[0] == 6000  # the catalog is asked for products under the widened limit
+    # The capped search asks for products under the widened limit; the one uncapped search runs beside it.
+    assert sorted(seen, key=str) == [6000, None]
     assert [r["id"] for r in out["recommendations"]] == ["ok"]  # $55 passes, $65 does not
     assert "You said about $50.00, so I included products up to $60.00." == out["budget_note"]
 
@@ -238,3 +239,33 @@ def test_no_budget_means_no_cap_and_no_extra_search():
     request = rec.parse_request({"raw_request": "anything", "queries": ["q1", "q2"]})
     rec.recommend(request, BUDGET_FLAGS, search)
     assert seen == [("q1", None), ("q2", None)]
+
+
+# --- Searches run in parallel but give the same result as one after another ---
+
+def test_parallel_searches_keep_query_order_whichever_answers_first():
+    import threading
+    import time
+    threads = set()
+
+    def search(query, limit, max_price_cents=None):
+        threads.add(threading.get_ident())
+        time.sleep({"slow": 0.2, "fast": 0.0}[query])  # the first query answers last
+        return [product("shared"), product(query)]
+
+    start = time.perf_counter()
+    merged = rec.search_all(["slow", "fast", "slow", "slow"], search)
+    assert time.perf_counter() - start < 0.5  # one after another would take 0.6 s
+    assert len(threads) > 1
+    assert [(p["id"], p["query_index"]) for p in merged] == [("shared", 0), ("slow", 0), ("fast", 1)]
+    assert rec.fetch_all([], search) == []
+
+
+def test_a_failed_search_still_fails_the_request():
+    def search(query, limit, max_price_cents=None):
+        if query == "b":
+            raise rec.catalog.CatalogError("search failed: HTTP 503")
+        return [product(query)]
+
+    with pytest.raises(rec.catalog.CatalogError):
+        rec.search_all(["a", "b", "c"], search)

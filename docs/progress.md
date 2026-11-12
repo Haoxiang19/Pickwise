@@ -36,7 +36,8 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Agent prompt: five rules from 13 real-model probes (status is payment only and nothing ships; no memory or exclusions from an unexplained rejection; shopping only; US dollars only; sensitive reasons left out of saved preferences). Changes the eval's step-1 prompt, so run the eval after this.
 - The page shows the agent's real step while it waits (`GET /api/progress`, polled once a second): understanding, searching with the queries, ranking, writing the reply.
 - Page entry points (frontend plan A2-A8): example buttons, refund buttons on order cards, compact order list, product pictures, simulation note, error style, no double send. Part B (Impeccable design) and A9 are open.
-- State: 232 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
+- Catalog searches run in parallel (same results): 4 + 1 searches take about 4 s instead of 15 s, a three-item set about 3 s instead of 12 s; no 429 in 28 real requests.
+- State: 234 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
 ## In progress
 - M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode.
@@ -126,7 +127,7 @@ refuse the request, so a judge can always finish the flow (refusing would break 
 - **PayPal sandbox**: token works; create with line items and `breakdown.item_total` accepted (F21), items read back as sent with a 127-character name cut; the same `PayPal-Request-Id` returned the same order; read-back status `PAYER_ACTION_REQUIRED`; the `payer-action` link is on `www.sandbox.paypal.com`.
 
 ## Found in the real run (not fixed)
-- **Latency**: a recommendation turn took 18-25 seconds. Measured on one request (2026-11-11): the 4 capped Channel3 searches run one after another and took 12.0 s, the extra uncapped search 2.9 s, ranking 4.0-4.4 s with 1 shuffle and 4.3-4.8 s with 3 (the shuffles run in parallel), the agent's first call 2.2 s. So searching, not ranking, is the bottleneck: `rank_shuffles` 1 saves two thirds of the ranking cost but almost no time. Running the searches in parallel would remove most of the wait (not done; needs the owner's OK).
+- **Latency**: a recommendation turn took 18-25 seconds. Measured on one request (2026-11-11): the 4 capped Channel3 searches run one after another and took 12.0 s, the extra uncapped search 2.9 s, ranking 4.0-4.4 s with 1 shuffle and 4.3-4.8 s with 3 (the shuffles run in parallel), the agent's first call 2.2 s. So searching, not ranking, is the bottleneck: `rank_shuffles` 1 saves two thirds of the ranking cost but almost no time. Fixed on 2026-11-12 by running the searches in parallel (see Done).
 - **Preference scope**: "I always buy Nike" was saved as "Always buys Nike shoes." during a running-shoe conversation, although the prompt says to keep the user's scope.
 
 ## Not verified (needs real services)

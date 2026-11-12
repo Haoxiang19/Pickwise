@@ -488,3 +488,22 @@ Result: `items` (name, quantity, chosen, alternatives), `total_cents` (server pr
 **Verified.** `tests/test_api.py`: the page contains the example texts, the refund button label, the refund and simulation notes and the progress polling, and never uses `innerHTML`. By hand in keyless mode (driven through the page's own buttons): the set example hid the examples and a second send during the request was refused; a paid three-item order showed three "Refund this item" buttons, "Refund all 3 remaining items" and the note; "Refund this item" on line 2 sent "refund item 2 of order 22", the draft showed line 2 for $59.99 and Confirm refund gave `PARTIALLY_REFUNDED`; "Refund all 2 remaining items" drafted two lines and ended `REFUNDED` with no buttons or note left; "my orders" drew a five-line list and Details drew a card; a refused cart showed with the error class; the mock pictures removed themselves and there was no horizontal scroll. With real services: three recommendation cards each loaded a picture from Channel3's image host.
 
 **Limits.** Buttons on an older card are not updated when the order changes elsewhere; a stale click is answered by the agent or refused by the server. With several refundable orders the agent may still ask which one when the user types "refund this order"; the buttons always name the order. The chat is still cleared from the screen by the PayPal round trip (frontend plan A9, not done). No design pass yet.
+
+## Catalog searches in parallel (supports F3, F22) (`app/recommend.py`)
+
+**What it does.** Sends the catalog searches of one request at the same time instead of one after another. The results, and everything built on them, are unchanged; only the wait is shorter.
+
+**Where.** `app/recommend.py`: `fetch_all`, `merge_results`, `search_all` (now built from the two), `SEARCH_WORKERS`, and the search steps of `recommend` and `recommend_bundle`.
+
+**How it works.**
+1. `fetch_all(searches, search_fn)` takes a list of (query, price cap) and runs them in a `ThreadPoolExecutor` with at most 6 workers. `pool.map` returns the results in the order of the input, whichever answer arrives first.
+2. `merge_results` is the old merging loop: de-duplicate by ID, and a product found by several queries keeps the index of the first query. Because the input order is preserved, the merge gives the same list as before.
+3. `recommend` starts the one uncapped search (the examples for the "Ruled out" list) on a side thread and runs the capped queries next to it, so at most 5 searches are in flight.
+4. `recommend_bundle` sends every query of every item in one `fetch_all` (6 at a time), then walks the items in order as before, so the rule "a product found for several items belongs to the first" is unaffected.
+5. A search that fails raises `CatalogError` out of `fetch_all`, as it did when the searches ran in sequence.
+
+**Why.** Measured on a real request, searching was about 15 of 20 seconds: each Channel3 search takes about 3 seconds and they ran one after another, while the three ranking calls already ran in parallel. The calls only wait on the network, so threads are enough. Six workers keeps a six-item set (12 searches) from sending everything at once; the existing single retry on HTTP 429 stays as the fallback.
+
+**Verified.** `tests/test_recommend.py`: with a slow first query the merged order and query indexes are the same as in sequence, several threads are used and the run takes less than the summed delays; an empty list is handled; a failing search still raises. One older test asserted that the capped search is called first; call order is no longer defined, so it now checks that one capped and one uncapped search were made. On real Channel3 (2026-11-12): a request with 4 capped and 1 uncapped search took 4.0 s and 3.9 s (was about 15 s), a three-item set with 6 searches 2.8 s (was about 12 s), a six-item set with 12 searches 5.9 s; 28 search requests, none answered 429.
+
+**Limits.** Not tested under several users at once, where concurrent searches add up. The 429 retry is per search and waits inside its worker thread. The eval replays a snapshot through the same functions and is unaffected in results.

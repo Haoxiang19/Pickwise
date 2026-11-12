@@ -25,6 +25,7 @@ DEFAULT_FLAGS = {"multi_query": True, "reasoning_rank": True, "rank_shuffles": 3
                  "budget_filter": True}
 MAX_BUNDLE_ITEMS = MAX_CART_LINES  # F22: a set must fit in one cart; also keeps enumeration at 6^6 sets
 BUNDLE_QUERIES = 2                 # search queries per item of a set
+SEARCH_WORKERS = 6                 # catalog searches sent at the same time; more would invite rate limits
 BUNDLE_SEED_STEP = 10              # item i ranks with seeds seed + 10*i + k, so items never share a shuffle
 MEMORY_STOPWORDS = {"prefers", "likes", "loves", "the", "brand", "a", "an", "of", "for", "and", "always", "buys"}
 
@@ -74,16 +75,34 @@ def parse_request(args: dict) -> dict:
     }
 
 
-def search_all(queries: list[str], search_fn=catalog.search, max_price_cents: int | None = None) -> list[dict]:
-    """F3: run every query, merge and de-duplicate by ID.
+def fetch_all(searches: list[tuple], search_fn=catalog.search) -> list[list[dict]]:
+    """Run several catalog searches at the same time. `searches` is a list of (query, price cap).
+
+    The results come back in the order of `searches`, whichever answer arrives first, so everything
+    built on them is the same as if the searches had run one after another. Searching was most of
+    the wait for a recommendation (about 3 seconds per query), and the calls only wait on the network.
+    """
+    if not searches:
+        return []
+    with ThreadPoolExecutor(max_workers=min(len(searches), SEARCH_WORKERS)) as pool:
+        return list(pool.map(lambda s: search_fn(s[0], SEARCH_LIMIT, s[1]), searches))
+
+
+def merge_results(results: list[list[dict]]) -> list[dict]:
+    """Merge the results of several queries and de-duplicate by ID.
 
     A product found by several queries keeps the index of the first query that returned it.
     """
     merged = {}
-    for qi, query in enumerate(queries):
-        for p in search_fn(query, SEARCH_LIMIT, max_price_cents):
+    for qi, products in enumerate(results):
+        for p in products:
             merged.setdefault(p["id"], {**p, "query_index": qi})
     return list(merged.values())
+
+
+def search_all(queries: list[str], search_fn=catalog.search, max_price_cents: int | None = None) -> list[dict]:
+    """F3: run every query (in parallel), merge and de-duplicate by ID."""
+    return merge_results(fetch_all([(q, max_price_cents) for q in queries], search_fn))
 
 
 def over_budget_examples(request: dict, search_fn, budget_cents: int) -> list[dict]:
@@ -301,12 +320,15 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
     # catalog can always be asked for affordable products. The limit is still enforced by hard_filter.
     cap = budget if flags.get("budget_filter") and budget is not None else None
     on_step("Searching the catalog: " + ", ".join(queries))
-    products = [{**p, "query_index": 0} for p in inject] + search_all(queries, search_fn, cap)
+    with ThreadPoolExecutor(max_workers=1) as side:
+        # The capped searches return nothing over budget, so one uncapped search fetches a few examples
+        # to show as ruled out. It runs next to the capped ones instead of after them.
+        examples = side.submit(over_budget_examples, request, search_fn, budget) if cap is not None else None
+        products = [{**p, "query_index": 0} for p in inject] + search_all(queries, search_fn, cap)
     candidates, rejected = hard_filter(products, budget, request["must_not"])
-    if cap is not None:
-        # The capped searches return nothing over budget, so fetch a few examples to show as ruled out.
+    if examples is not None:
         seen = {r["id"] for r in rejected}
-        rejected += [r for r in over_budget_examples(request, search_fn, budget) if r["id"] not in seen]
+        rejected += [r for r in examples.result() if r["id"] not in seen]
     shuffles = flags.get("rank_shuffles", 1)
     # F19: memory only reaches the ranker, as soft preferences; hard constraints come from this request alone.
     memories = list(request.get("memory") or []) if flags.get("use_memory") else []
@@ -432,10 +454,13 @@ def recommend_bundle(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catal
 
     # 1-2. Search each item, then filter against the total budget. A product found for several items
     # belongs to the first one, so one set can never hold the same product twice (a cart refuses that).
+    # Every query of every item is sent at once; the results are then handled item by item, in order.
+    on_step("Searching the catalog for " + ", ".join(item["name"] for item in items))
+    results = fetch_all([(q, cap) for queries in item_queries for q in queries], search_fn)
     seen, candidates = set(), []
     for item, queries in zip(items, item_queries):
-        on_step(f"Searching the catalog for {item['name']}: " + ", ".join(queries))
-        found = [p for p in search_all(queries, search_fn, cap) if p["id"] not in seen]
+        mine, results = results[:len(queries)], results[len(queries):]
+        found = [p for p in merge_results(mine) if p["id"] not in seen]
         seen.update(p["id"] for p in found)
         products.extend(found)
         passed, out = hard_filter(found, budget, request["must_not"])
