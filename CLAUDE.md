@@ -77,7 +77,7 @@ Use the Impeccable design skill for page design. Commands have the form `/impecc
 
 Use it in this order:
 
-1. **`/impeccable init`**: run once before any page work. It generates `PRODUCT.md` and `DESIGN.md`; every later page change follows `DESIGN.md`.
+1. **`/impeccable init`**: run once before any page work. It generates `PRODUCT.md` (product context only). `DESIGN.md` is written when the page is built with `craft`; every later page change follows `DESIGN.md`.
 2. **`/impeccable shape`**: plan layout and interaction before writing the chat page.
 3. **`/impeccable craft`**: build the page from that plan.
 4. **`/impeccable audit`**: before deploying, check accessibility, performance and phone-width behavior.

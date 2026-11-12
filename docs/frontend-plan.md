@@ -1,6 +1,6 @@
 # Frontend work list (`static/index.html`)
 
-Status: written 2026-11-11. **Part A is done except A9 (2026-11-12); Part B not started.** One static HTML file with vanilla JavaScript stays the
+Status: written 2026-11-11. **Part A is done except A9 (2026-11-12); Part B: B1 done (2026-11-12).** One static HTML file with vanilla JavaScript stays the
 rule (`CLAUDE.md`). When an item is done, its facts move to `docs/implementation.md` and it is ticked here.
 
 The list has two parts, because they are done by different means:
@@ -8,8 +8,7 @@ The list has two parts, because they are done by different means:
 - **Part A, behaviour**: what the page must *do*. Plain JavaScript wiring, verified by clicking through the
   flow. No visual decisions beyond reusing the existing classes.
 - **Part B, design**: how the page *looks and reads*. Done with the Impeccable skill, as `CLAUDE.md` requires.
-  Impeccable is **not installed** in this project yet (no skill available, no `PRODUCT.md` / `DESIGN.md`);
-  the owner installs it.
+  Impeccable is installed in `.claude/skills/impeccable/`.
 
 Order: Part A first, then Part B. Impeccable's `craft` should restyle a page that already contains every
 element, otherwise elements added later would not follow `DESIGN.md`.
@@ -71,7 +70,8 @@ purchase, a line refund through the buttons, and the page at 375 px width.
 Budget from `CLAUDE.md`: about 2 hours in total. If time is short: `init`, `craft`, `audit` only.
 No effect commands (`animate`, `delight`, `overdrive`, `bolder`).
 
-B1. `/impeccable init` once: writes `PRODUCT.md` and `DESIGN.md`. Inputs to give it: a shopping agent for a
+B1. [done 2026-11-12] `/impeccable init` once: writes `PRODUCT.md` only (this version of Impeccable does not
+    write `DESIGN.md` in init; `craft` writes it when it builds the page). Inputs given: a shopping agent for a
     hackathon demo, clarity over decoration, the "Must stay" list above, one static file, phone-width use.
 
 B2. `/impeccable shape`: layout and interaction plan for the chat page (skip when short of time).
