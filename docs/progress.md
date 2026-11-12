@@ -98,13 +98,20 @@ What the official rules (https://paypalaihackathon.devpost.com/rules) say, check
 If a cap is added before deploying: degrade to the labelled mock when a daily total is reached, never
 refuse the request, so a judge can always finish the flow (refusing would break "without any restriction").
 
+## Verified against real services (2026-11-11, from the dev machine)
+- **Channel3**: search and `GET /v1/products/{id}` work. The price is `offers[].price.price` as a dollar number (34.99 -> 3499 cents); currency `USD`; `availability` seen only as `InStock`; `brands[0].name`, `images[].is_main_image` and `category.title` are filled; the product lookup returns the product at the top level (no `product` wrapper); `filters.price.max_price` held ($100 cap, 10 of 10 results under it). 5 of 10 tent results carry a `variants` object; offers carry `max_commission_rate` (e.g. 0.014). Hackathon credits apply (see Deferred).
+- **DeepSeek** (`deepseek-flash`, thinking disabled through `LLM_EXTRA_BODY`): the model ID is accepted, replies carry no `reasoning_content`, and `usage.prompt_tokens` / `usage.completion_tokens` exist. In a 6-turn agent run it asked for the budget and did not search; called `recommend` with 4 queries at $120; on "cheaper" kept the $120 budget but searched cheaper queries (results $35-$60); on "I always buy Nike" saved a preference and searched Nike; split "a tent, a sleeping bag and a lantern under $300" into 3 items with 2 queries each (set $164.93); on "buy the set" called `prepare_cart` with the 3 chosen IDs. 29 model calls, about 69k input and 10k output tokens for the 6 turns.
+- **PayPal sandbox**: token works; create with line items and `breakdown.item_total` accepted (F21), items read back as sent with a 127-character name cut; the same `PayPal-Request-Id` returned the same order; read-back status `PAYER_ACTION_REQUIRED`; the `payer-action` link is on `www.sandbox.paypal.com`.
+
+## Found in the real run (not fixed)
+- **Latency**: a recommendation turn took 18-25 seconds (agent call plus 3 parallel ranking calls). Slow for a live demo; `rank_shuffles` 1 would cut ranking calls by two thirds (see Questions).
+- **Preference scope**: "I always buy Nike" was saved as "Always buys Nike shoes." during a running-shoe conversation, although the prompt says to keep the user's scope.
+
 ## Not verified (needs real services)
-- No real model call made yet: function calling on DeepSeek, model ID, `usage` field names, ranking JSON quality, whether it saves/uses preferences sensibly, cost of 3 parallel ranking calls.
-- No real Channel3 call: field names and the dollar unit of `offers[].price.price`.
-- The real model has never been asked to call `prepare_cart` with `items` (F21) or `recommend_bundle` (F22): whether it splits a request into items, writes 1-2 good queries per item, and calls `prepare_cart` with the chosen IDs is unknown. A set of N items makes 3N ranking calls at once (up to 18); cost and rate limits on a real provider are untested.
-- **Line items accepted by the sandbox** (F21): the create body now has `items` and `breakdown.item_total` for every order. Built from the Orders v2 schema and checked only against fakes and the mock. The first real sandbox payment must confirm it; if PayPal rejects it, Confirm fails with "Nothing was charged" for every order, not only multi-item ones.
-- No real PayPal sandbox call: token, create (`payer-action` link), get, capture, refund are tested only against fakes and the mock. PayPal's real error body shape and the query parameters it appends to return/cancel URLs are not observed.
-- Render deploy, phone-width layout, `secure` cookie behind Render's proxy.
+- Capture after a real buyer approval, the read-back `APPROVED` status, and refunds with an amount on a real capture (F23), including two partial refunds on one capture. Needs a buyer login in the sandbox.
+- Ranking JSON quality over many requests, and the eval on real data.
+- PayPal's real error body shape and the query parameters it appends to the return/cancel URLs.
+- Render deploy, phone-width layout on a real phone, `secure` cookie behind Render's proxy.
 
 ## Questions for the owner
 - **The margin for an approximate budget is 20%** (`recommend.APPROXIMATE_MARGIN`), so "around $70" allows up to $84, rounded up to a whole dollar. Chosen by the owner on 2026-11-11; change the constant to adjust.
