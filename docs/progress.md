@@ -50,7 +50,8 @@ endpoint, and payment and refund safety is untouched.
    - on an order card, "Refund this item" per line and "Refund the rest", which send
      `refund item N of order X` / `refund order X` to the chat, so the agent still drafts every refund (F16, F23)
      and money moves only on Confirm refund.
-3. **Success page note**: say this is a sandbox simulation and nothing ships, and that the order can be checked or
+3. **Order lists**: when the agent calls `get_orders` only to find "this order", the page draws every listed order as a full card (5 cards for one refund). Show such a list compactly, one line per order. The order shown after the PayPal return is not in the chat history, which is why the agent had to look it up; the refund buttons from item 2 name the order explicitly.
+4. **Success page note**: say this is a sandbox simulation and nothing ships, and that the order can be checked or
    refunded from the chat or the buttons.
 
 ## Next steps for the owner (in order)
@@ -116,6 +117,7 @@ refuse the request, so a judge can always finish the flow (refusing would break 
 ## Verified against real services (2026-11-11, from the dev machine)
 - **Channel3**: search and `GET /v1/products/{id}` work. The price is `offers[].price.price` as a dollar number (34.99 -> 3499 cents); currency `USD`; `availability` seen only as `InStock`; `brands[0].name`, `images[].is_main_image` and `category.title` are filled; the product lookup returns the product at the top level (no `product` wrapper); `filters.price.max_price` held ($100 cap, 10 of 10 results under it). 5 of 10 tent results carry a `variants` object; offers carry `max_commission_rate` (e.g. 0.014). Hackathon credits apply (see Deferred).
 - **DeepSeek** (`deepseek-flash`, thinking disabled through `LLM_EXTRA_BODY`): the model ID is accepted, replies carry no `reasoning_content`, and `usage.prompt_tokens` / `usage.completion_tokens` exist. In a 6-turn agent run it asked for the budget and did not search; called `recommend` with 4 queries at $120; on "cheaper" kept the $120 budget but searched cheaper queries (results $35-$60); on "I always buy Nike" saved a preference and searched Nike; split "a tent, a sleeping bag and a lantern under $300" into 3 items with 2 queries each (set $164.93); on "buy the set" called `prepare_cart` with the 3 chosen IDs. 29 model calls, about 69k input and 10k output tokens for the 6 turns.
+- **PayPal sandbox, real buyer** (order 21, $198.00, one line): the buyer approved in the sandbox, the return read the order back, captured (HTTP 201) and the order became `COMPLETED`; PayPal shows the capture and payer. "Refund this order" made the agent call `get_orders` then `draft_refund(21)`; Confirm refund sent one refund with the amount (`refund-21-1`, HTTP 201), PayPal shows the refund `COMPLETED` for 198.00 and the capture `REFUNDED`, and the local order is `REFUNDED` with the line's `refund_id`. A refund that states its amount works on this merchant account.
 - **PayPal sandbox**: token works; create with line items and `breakdown.item_total` accepted (F21), items read back as sent with a 127-character name cut; the same `PayPal-Request-Id` returned the same order; read-back status `PAYER_ACTION_REQUIRED`; the `payer-action` link is on `www.sandbox.paypal.com`.
 
 ## Found in the real run (not fixed)
@@ -123,7 +125,7 @@ refuse the request, so a judge can always finish the flow (refusing would break 
 - **Preference scope**: "I always buy Nike" was saved as "Always buys Nike shoes." during a running-shoe conversation, although the prompt says to keep the user's scope.
 
 ## Not verified (needs real services)
-- Capture after a real buyer approval, the read-back `APPROVED` status, and refunds with an amount on a real capture (F23), including two partial refunds on one capture. Needs a buyer login in the sandbox.
+- Two partial refunds on one capture (F23, a multi-line order refunded line by line). Capture after approval and a single refund with an amount are verified.
 - Ranking JSON quality over many requests, and the eval on real data.
 - PayPal's real error body shape and the query parameters it appends to the return/cancel URLs.
 - Render deploy, phone-width layout on a real phone, `secure` cookie behind Render's proxy.
