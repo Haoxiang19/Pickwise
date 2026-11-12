@@ -41,6 +41,7 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - P2 "multiple items per order" is done in keyless mode as F21 (multi-item cart, PayPal line items), F22 (set recommendation) and F23 (refund by line), in 5 commits. The work order `docs/multi-item-plan.md` was deleted on 2026-11-11 after completion, as it asked; what was built is in `docs/implementation.md`, the research in `docs/decisions.md`, and the file remains in git history.
 
 ## To do: make every feature visible on the page (owner approved the list, 2026-11-11; not started)
+**The full frontend list, including the design steps with Impeccable, is now in `docs/frontend-plan.md`; that file supersedes the short list below.** Impeccable is not installed yet (owner installs it).
 Found in the real run: a recommendation takes about 20 seconds with no feedback, and order status, refunds, sets
 and preferences can only be reached by typing the right sentence. Only `static/index.html` changes; no new
 endpoint, and payment and refund safety is untouched.
