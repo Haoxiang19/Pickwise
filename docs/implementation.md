@@ -431,3 +431,20 @@ Result: `items` (name, quantity, chosen, alternatives), `total_cents` (server pr
 **Verified.** `tests/test_agent.py`: an empty block leaves the prompt unchanged; own orders appear with line numbers, another user's do not, a refunded line is marked and the block is in the system prompt; the unpaid summary shows a long title cut to 60 characters, disappears once confirmed (the order then shows as `CREATED`) and when expired. On the real model (`deepseek-flash`, mock PayPal, two paid orders, 2026-11-11): "I want my money back for the lantern" drafted order 2 line 3 and "refund the yoga mat" drafted order 1 line 1, both without calling `get_orders`; "refund this order" and "I want a refund" asked which of the two orders; a headphone request only recommended. Before the "no `get_orders` needed" sentence was added, the lantern request still listed orders first.
 
 **Limits.** Actions the server refused (a set over budget) leave no record, so the model does not know about them. "Refund this order" asks when two paid orders exist, even right after paying one. A status question still calls `get_orders` (F15 rule), which draws a card per order. Only the 3 most recently changed orders are shown; older ones need `get_orders`.
+
+## Agent behaviour rules from the real-model probes (`app/agent.py`, `SYSTEM_PROMPT`)
+
+**What it does.** Five prompt rules added after probing `deepseek-flash` with 13 edge cases (2026-11-11), each fixing a behaviour that was observed, not assumed.
+
+**The rules, and what the model did before.**
+1. *Order status is about payment only.* Asked "when will my order arrive?", the model said a `COMPLETED` order "has already been delivered" and pointed to a carrier email. Now: `COMPLETED` means paid; this is a sandbox simulation with no shipping, tracking number or email, and the model must say so and never invent shipping details.
+2. *A rejection without a reason saves nothing.* After "I don't like any of these" the model saved "Dislikes Soundcore and Samsung audio products" and excluded both brands. Now it asks what the user did not like, or searches again with other queries; a preference or `must_not` word is only for what the user actually said.
+3. *Shopping only.* It wrote a poem on request. Now it declines anything outside products, order summaries, order status, refunds and preferences in one sentence.
+4. *US dollars only.* For "under 100 euros" it asked two questions and offered to convert. Now it says prices are in dollars and asks one question for the dollar budget; it never converts.
+5. *A sensitive reason is left out of a saved preference.* "I'm diabetic so I always buy sugar-free snacks" was once saved as "Always buys sugar-free snacks (diabetic)." Now only the shopping preference is saved.
+
+**Why prompt rules.** These are wording and judgement behaviours with no number or state for code to check. The money and budget rules stay in code; none of these rules is a safety boundary.
+
+**Verified.** The same probes after the change (real model, mock catalog and PayPal): the shipping question got the simulation answer with no tool call; the unexplained rejection got one question and saved nothing, while "I don't want anything from Soundcore, they break too fast" saved the preference and excluded the brand; the poem was declined and "what can you do?" answered; the euro budget got one dollar question; four sensitive-reason messages saved "Always buys sugar-free snacks" (twice), "Only buys halal food" and "Always buys ergonomic chairs". The other probes kept working: no payment by the agent, no price override, 7 items split, cheaper set, unknown order, Chinese reply, nothing under budget. `pytest` covers none of this: the keyless mock does not read the prompt.
+
+**Limits.** One run per probe, on one model; prompt rules are not guarantees. "Only buys halal food" leaves out the stated religion but still implies it; whether such a preference should be saved at all is the owner's call. The rules change the step-1 prompt of the eval, so ask accuracy must be measured after this change.
