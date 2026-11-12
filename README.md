@@ -1,6 +1,6 @@
 # Pickwise
 
-Pickwise is a shopping agent I built for the PayPal AI Hackathon 2026. You tell it what you want and how much you can spend. It suggests three products, says why it picked each one, and lists the ones it left out. You pay for the one you choose through the PayPal sandbox, and you can check the order or refund it later.
+Pickwise is a shopping agent for the PayPal AI Hackathon 2026. Describe what you need and your budget. An LLM works out which products would suit what you said, searches for them, and recommends three with a reason for each. It can also put together a set of items within one budget. It never spends money by itself: every payment and refund needs your click, and payments go through the PayPal sandbox.
 
 ## What it does
 
