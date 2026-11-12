@@ -248,6 +248,8 @@ def run_tool_call(session: Session, call: dict, ui: dict) -> str:
         args = json.loads(fn.get("arguments") or "{}")
         if not isinstance(args, dict):
             raise ValueError("arguments must be a JSON object")
+        # Shows what the model decided (e.g. which must_not words a "I don't like..." became). No secrets in tool args.
+        log.info("tool %s %s", name, json.dumps(args)[:1000])
         return json.dumps(tool(session, args, ui))
     except Exception as e:  # noqa: BLE001 - any tool failure goes back to the model as data
         log.warning("tool %s failed: %s", name, e)

@@ -329,7 +329,7 @@ def recommend(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catalog.sear
         why = ", ".join(f"{n} {kind}" for kind, n in counts.items()) or "the search returned few matches"
         note = (f"Only {len(recommendations)} product(s) passed the filters; {len(rejected)} were removed ({why}). "
                 "Try a higher budget or fewer exclusions.")
-    log.info("recommend %s", json.dumps({"queries": queries, "seed": seed, "shuffles": shuffles, "price_cap": cap, "memory": [m["id"] for m in memories], "candidates": [p["id"] for p in candidates],
+    log.info("recommend %s", json.dumps({"queries": queries, "budget": budget, "must_not": request["must_not"], "seed": seed, "shuffles": shuffles, "price_cap": cap, "memory": [m["id"] for m in memories], "candidates": [p["id"] for p in candidates],
                                          "rejected": [[r["id"], r["kind"]] for r in rejected],
                                          "ranking": [r["id"] for r in ranking], "picks": [r["id"] for r in picks]}))
     return {"recommendations": recommendations, "rejected": rejected, "note": note, "budget_note": budget_note,
@@ -409,7 +409,7 @@ def recommend_bundle(request: dict, flags: dict = DEFAULT_FLAGS, search_fn=catal
     memories = list(request.get("memory") or []) if flags.get("use_memory") else []
     item_queries = [item["queries"] if flags["multi_query"] else [item["name"]] for item in items]
     seeds = [seed + BUNDLE_SEED_STEP * i for i in range(len(items))]
-    trace = {"queries": item_queries, "seeds": seeds, "price_cap": cap}
+    trace = {"queries": item_queries, "budget": budget, "must_not": request["must_not"], "seeds": seeds, "price_cap": cap}
     products, rejected = [], []
 
     def finish(chosen_items: list, total: int | None, note: str) -> dict:

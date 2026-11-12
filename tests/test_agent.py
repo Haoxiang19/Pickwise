@@ -105,6 +105,14 @@ def test_blank_reply_retried_once_then_fallback(monkeypatch):
     assert s.history[-1]["role"] == "assistant"
 
 
+def test_tool_calls_and_exclusions_are_logged(caplog):
+    caplog.set_level("INFO")
+    agent.handle_message(Session(), "noise cancelling headphones under $100, no JBL")
+    assert any(r.getMessage().startswith("tool recommend ") and '"must_not": ["jbl"]' in r.getMessage() for r in caplog.records)
+    assert any(r.getMessage().startswith("recommend ") and '"must_not": ["jbl"]' in r.getMessage() and '"budget": 10000' in r.getMessage()
+               for r in caplog.records)
+
+
 def test_model_has_no_money_tools():
     names = {t["function"]["name"] for t in agent.TOOLS}
     assert not names & {"create_order", "capture", "refund", "pay"}
