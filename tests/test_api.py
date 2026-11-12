@@ -130,6 +130,16 @@ def test_full_mock_purchase_of_a_two_item_cart(client):
     assert [(i["title"], i["quantity"]) for i in order["items"]] == [(recs[0]["title"], 2), (recs[1]["title"], 1)]
 
 
+def test_order_list_shows_only_this_users_orders(client):
+    recs = client.post("/api/chat", json={"message": "noise cancelling headphones under $1000"}).json()["recommendations"]
+    cart = client.post("/api/cart", json={"product_id": recs[0]["id"]}).json()
+    order_id = client.post("/api/confirm", json={"cart_id": cart["cart_id"]}).json()["order_id"]
+    mine = client.get("/api/orders").json()
+    assert mine[0]["order_id"] == order_id and mine[0]["amount_cents"] == recs[0]["price_cents"]
+    stranger = TestClient(main.app)  # no cookie: a different user
+    assert all(o["order_id"] != order_id for o in stranger.get("/api/orders").json())
+
+
 # --- F22 set recommendation ---
 
 def test_set_request_review_swap_confirm_and_pay(client):
@@ -187,7 +197,7 @@ def test_progress_endpoint_is_empty_when_idle_and_per_user(client):
 
 def test_page_offers_entry_points_and_keeps_refund_cues(client):
     page = client.get("/").text
-    for text in ("a tent, a sleeping bag and a lantern under $300", "my orders", "Refund this item",
+    for text in ("A smart mug, a notebook and a candle under $200", "Remember that I prefer balsam and cedar scents", "/api/orders", "Refund this item",
                  "Nothing is refunded until you click Confirm refund.", "nothing ships", "/api/progress"):
         assert text in page
     # Product text and images never go through innerHTML.

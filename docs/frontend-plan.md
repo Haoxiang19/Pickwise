@@ -1,6 +1,6 @@
 # Frontend work list (`static/index.html`)
 
-Status: written 2026-11-11. **Part A is done except A9 (2026-11-12); Part B: B1 done (2026-11-12).** One static HTML file with vanilla JavaScript stays the
+Status: written 2026-11-11. **Part A is done except A9 (2026-11-12); Part B: B1 and B3 done, B2 skipped (2026-11-12).** One static HTML file with vanilla JavaScript stays the
 rule (`CLAUDE.md`). When an item is done, its facts move to `docs/implementation.md` and it is ticked here.
 
 The list has two parts, because they are done by different means:
@@ -74,9 +74,9 @@ B1. [done 2026-11-12] `/impeccable init` once: writes `PRODUCT.md` only (this ve
     write `DESIGN.md` in init; `craft` writes it when it builds the page). Inputs given: a shopping agent for a
     hackathon demo, clarity over decoration, the "Must stay" list above, one static file, phone-width use.
 
-B2. `/impeccable shape`: layout and interaction plan for the chat page (skip when short of time).
+B2. [skipped: the look was chosen in comparison rounds instead] `/impeccable shape`: layout and interaction plan for the chat page (skip when short of time).
 
-B3. `/impeccable craft`: restyle the page from `DESIGN.md`. Things to hand it explicitly:
+B3. [done 2026-11-12, see `docs/implementation.md` "Page design and the Orders view"; added the owner-approved Orders view and `GET /api/orders`] `/impeccable craft`: restyle the page; `DESIGN.md` is written from the result. Things to hand it explicitly:
     - visual hierarchy between chat bubbles, product cards, the set groups, the order summary, the refund
       draft and order cards, which today all look alike;
     - the set view: chosen product versus alternatives, the total line, the "Review this set" button;

@@ -1,0 +1,504 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T08:11:54+00:00",
+  "title": "Design System: Pickwise",
+  "extensions": {
+    "colorMeta": {
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#4f4f4f",
+          "#8a8a8a",
+          "#c4c4c4",
+          "#ffffff",
+          "#fefdfc",
+          "#fcfbfa",
+          "#fbfaf8",
+          "#faf9f6"
+        ]
+      },
+      "sand": {
+        "role": "neutral",
+        "displayName": "Sand",
+        "canonical": "#f5f2ee",
+        "tonalRamp": [
+          "#4c4c4a",
+          "#848381",
+          "#bdbab8",
+          "#f5f2ee",
+          "#f6f4f0",
+          "#f8f5f2",
+          "#f9f6f3",
+          "#faf7f4"
+        ]
+      },
+      "sand-deep": {
+        "role": "neutral",
+        "displayName": "Deep Sand",
+        "canonical": "#ebe5dd",
+        "tonalRamp": [
+          "#4a4846",
+          "#807c78",
+          "#b5b1ab",
+          "#ebe5dd",
+          "#f0ebe4",
+          "#f3efea",
+          "#f6f3ef",
+          "#f8f6f3"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e8e2da",
+        "tonalRamp": [
+          "#494846",
+          "#7e7b77",
+          "#b3aea8",
+          "#e8e2da",
+          "#ede9e2",
+          "#f2eee9",
+          "#f6f2ee",
+          "#f8f6f2"
+        ]
+      },
+      "control-line": {
+        "role": "neutral",
+        "displayName": "Control Line",
+        "canonical": "#d3cbc1",
+        "tonalRamp": [
+          "#44423f",
+          "#74706a",
+          "#a39d96",
+          "#d3cbc1",
+          "#dfd8d1",
+          "#e8e4de",
+          "#f0ede8",
+          "#f6f4f0"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#141414",
+        "tonalRamp": [
+          "#141414",
+          "#141414",
+          "#141414",
+          "#141414",
+          "#595858",
+          "#929190",
+          "#c0bfbd",
+          "#e3e1de"
+        ]
+      },
+      "ink-hover": {
+        "role": "neutral",
+        "displayName": "Ink Hover",
+        "canonical": "#333333",
+        "tonalRamp": [
+          "#1c1c1c",
+          "#242424",
+          "#2b2b2b",
+          "#333333",
+          "#6f6e6d",
+          "#a09f9e",
+          "#c8c7c4",
+          "#e6e4e2"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#625a52",
+        "tonalRamp": [
+          "#282624",
+          "#3b3733",
+          "#4e4842",
+          "#625a52",
+          "#908983",
+          "#b6b1ac",
+          "#d4d0cc",
+          "#ebe8e5"
+        ]
+      },
+      "espresso": {
+        "role": "primary",
+        "displayName": "Espresso",
+        "canonical": "#7a5a43",
+        "tonalRamp": [
+          "#2e2620",
+          "#47372c",
+          "#604837",
+          "#7a5a43",
+          "#a08978",
+          "#c0b1a5",
+          "#dad0c8",
+          "#ede8e3"
+        ]
+      },
+      "espresso-ink": {
+        "role": "primary",
+        "displayName": "Espresso Ink",
+        "canonical": "#6b4e3a",
+        "tonalRamp": [
+          "#2a221e",
+          "#403127",
+          "#554030",
+          "#6b4e3a",
+          "#968172",
+          "#baaca1",
+          "#d6cec6",
+          "#ece7e2"
+        ]
+      },
+      "espresso-tint": {
+        "role": "primary",
+        "displayName": "Espresso Tint",
+        "canonical": "#f1eae2",
+        "tonalRamp": [
+          "#4b4a48",
+          "#827f7b",
+          "#bab4ae",
+          "#f1eae2",
+          "#f4eee8",
+          "#f6f2ec",
+          "#f8f4f0",
+          "#f9f7f3"
+        ]
+      },
+      "shopper-ink": {
+        "role": "neutral",
+        "displayName": "Shopper Ink",
+        "canonical": "#2b2018",
+        "tonalRamp": [
+          "#1a1715",
+          "#201a16",
+          "#251d17",
+          "#2b2018",
+          "#69615a",
+          "#9d9792",
+          "#c6c2be",
+          "#e5e2df"
+        ]
+      },
+      "status-green": {
+        "role": "state",
+        "displayName": "Status Green",
+        "canonical": "#1f7a3d",
+        "tonalRamp": [
+          "#172e1e",
+          "#1a4728",
+          "#1c6033",
+          "#1f7a3d",
+          "#61a074",
+          "#97bfa2",
+          "#c3d8c7",
+          "#e4ebe3"
+        ]
+      },
+      "status-amber": {
+        "role": "state",
+        "displayName": "Status Amber",
+        "canonical": "#8f5a00",
+        "tonalRamp": [
+          "#33260f",
+          "#52370a",
+          "#704805",
+          "#8f5a00",
+          "#af894a",
+          "#cab187",
+          "#dfd0b8",
+          "#efe8dc"
+        ]
+      },
+      "status-red": {
+        "role": "state",
+        "displayName": "Status Red",
+        "canonical": "#b3261e",
+        "tonalRamp": [
+          "#3c1816",
+          "#641d19",
+          "#8b221c",
+          "#b3261e",
+          "#c8655e",
+          "#da9a94",
+          "#e8c4bf",
+          "#f3e3e0"
+        ]
+      },
+      "error-tint": {
+        "role": "state",
+        "displayName": "Error Tint",
+        "canonical": "#fdf6f5",
+        "tonalRamp": [
+          "#4e4c4c",
+          "#888584",
+          "#c3bebd",
+          "#fdf6f5",
+          "#fcf7f5",
+          "#fbf7f5",
+          "#fbf8f5",
+          "#faf8f5"
+        ]
+      },
+      "error-line": {
+        "role": "state",
+        "displayName": "Error Line",
+        "canonical": "#e7b3af",
+        "tonalRamp": [
+          "#493c3b",
+          "#7e6462",
+          "#b28b88",
+          "#e7b3af",
+          "#edc8c4",
+          "#f1d9d6",
+          "#f5e7e4",
+          "#f8f1ee"
+        ]
+      },
+      "mock-tint": {
+        "role": "state",
+        "displayName": "Mock Tint",
+        "canonical": "#fff4e5",
+        "tonalRamp": [
+          "#4f4c48",
+          "#8a847c",
+          "#c4bcb1",
+          "#fff4e5",
+          "#fef5ea",
+          "#fcf6ee",
+          "#fbf7f1",
+          "#faf8f3"
+        ]
+      },
+      "mock-ink": {
+        "role": "state",
+        "displayName": "Mock Ink",
+        "canonical": "#7a4a00",
+        "tonalRamp": [
+          "#2e220f",
+          "#472f0a",
+          "#603c05",
+          "#7a4a00",
+          "#a07e4a",
+          "#c0aa87",
+          "#daccb8",
+          "#ede7dc"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Empty-state question only; 30px on phones."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Orders and What I remember page titles; 28px on phones."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "PICKWISE in the sidebar, beside the mark."
+      },
+      "total": {
+        "displayName": "Total",
+        "purpose": "The order total on money cards."
+      },
+      "reply": {
+        "displayName": "Reply",
+        "purpose": "Agent replies and example requests."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default text."
+      },
+      "product-title": {
+        "displayName": "Product title",
+        "purpose": "Product names, clamped to two lines."
+      },
+      "card-title": {
+        "displayName": "Card title",
+        "purpose": "Uppercase titles of money cards."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Rank tags, retailer brands, table heads, descriptor."
+      }
+    },
+    "shadows": [
+      {
+        "name": "stage-hover-ring",
+        "value": "inset 0 0 0 1px #e8e2da",
+        "purpose": "Hairline ring on a product stage on hover."
+      },
+      {
+        "name": "stage-chosen-ring",
+        "value": "inset 0 0 0 2px #7a5a43",
+        "purpose": "Espresso ring on the chosen product's stage."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-transition",
+        "value": "150ms ease",
+        "purpose": "Colour, border, background, stage ring and chevron turn. Removed under prefers-reduced-motion."
+      },
+      {
+        "name": "spinner",
+        "value": "rotate 0.9s linear infinite",
+        "purpose": "Progress indicator while the agent works; slowed to 3s under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "860px",
+        "purpose": "At or below: sidebar becomes a top bar with three tabs, products in two columns."
+      }
+    ],
+    "focus": {
+      "value": "outline: 2px solid #7a5a43; outline-offset: 2px",
+      "purpose": "Every focusable control."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button (money step)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single black full-width button that moves money after a human click.",
+      "html": "<div class=\"ds-pay\"><button class=\"ds-btn-primary\">Confirm and pay with PayPal</button><p class=\"ds-note\">Nothing is charged until you approve the payment on PayPal.</p></div>",
+      "css": ".ds-pay { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; max-width: 360px; } .ds-btn-primary { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; width: 100%; background: #141414; color: #fff; border: 1px solid #141414; border-radius: 4px; padding: 15px 20px; font-size: 15px; font-weight: 500; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; } .ds-btn-primary:hover { background: #333; border-color: #333; } .ds-btn-primary:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: .45; cursor: default; } .ds-note { color: #625a52; font-size: 13px; text-align: center; margin: 12px 0 0; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Default button: white, control-line border, black border on hover.",
+      "html": "<button class=\"ds-btn-outline\">Choose</button>",
+      "css": ".ds-btn-outline { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; background: #fff; color: #141414; border: 1px solid #d3cbc1; border-radius: 4px; padding: 9px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: border-color .15s ease; } .ds-btn-outline:hover { border-color: #141414; } .ds-btn-outline:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Link Button",
+      "kind": "button",
+      "refersTo": "button-link",
+      "description": "Underlined small action; red for Delete.",
+      "html": "<span class=\"ds-links\"><button class=\"ds-btn-link\">Refund this item</button><button class=\"ds-btn-link ds-danger\">Delete</button></span>",
+      "css": ".ds-links { display: inline-flex; gap: 18px; } .ds-btn-link { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; border: 0; background: none; padding: 2px 0; border-radius: 4px; font-size: 14px; font-weight: 500; color: #141414; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; cursor: pointer; transition: color .15s ease; } .ds-btn-link:hover { color: #625a52; } .ds-btn-link:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; } .ds-danger { color: #b3261e; }"
+    },
+    {
+      "name": "Composer",
+      "kind": "input",
+      "refersTo": "composer",
+      "description": "Docked input box with the black Send button inside.",
+      "html": "<form class=\"ds-form\" onsubmit=\"return false\"><input class=\"ds-input\" placeholder=\"Describe what you need, e.g. running shoes under $100\" aria-label=\"Message\"><button class=\"ds-send\">Send</button></form>",
+      "css": ".ds-form { display: flex; gap: 6px; border: 1px solid #d3cbc1; border-radius: 6px; padding: 6px; background: #fff; max-width: 560px; transition: border-color .15s ease; } .ds-form:focus-within { border-color: #141414; } .ds-input { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; flex: 1; min-width: 0; border: 0; outline: 0; padding: 8px 10px; font-size: 15px; background: none; caret-color: #7a5a43; } .ds-input::placeholder { color: #75746f; } .ds-send { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; background: #141414; color: #fff; border: 1px solid #141414; border-radius: 4px; padding: 8px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color .15s ease; } .ds-send:hover { background: #333; } .ds-send:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sand sidebar with the mark, wordmark and icon views; current view on deep sand with an espresso icon.",
+      "html": "<nav class=\"ds-side\"><div class=\"ds-brand\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 32 32\" aria-hidden=\"true\"><rect x=\"8\" y=\"4\" width=\"16\" height=\"4\" rx=\"1\" fill=\"#7a5a43\" opacity=\".3\"/><rect x=\"5\" y=\"9.5\" width=\"22\" height=\"5\" rx=\"1\" fill=\"#7a5a43\" opacity=\".55\"/><rect x=\"2\" y=\"16\" width=\"28\" height=\"13\" rx=\"1.5\" fill=\"#7a5a43\"/><path d=\"M11.5 22.5l3 3 6-6.5\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><div class=\"ds-wm\">Pickwise<small>Shopping Agent</small></div></div><button class=\"ds-nav\" aria-current=\"page\"><svg class=\"ds-icon\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"M4 4.5h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z\"/></svg>Chat</button><button class=\"ds-nav\"><svg class=\"ds-icon\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"M4.5 7h11l-.8 9.2a1 1 0 0 1-1 .8H6.3a1 1 0 0 1-1-.8z\"/><path d=\"M7.5 7a2.5 2.5 0 0 1 5 0\"/></svg>Orders</button></nav>",
+      "css": ".ds-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-side { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; width: 248px; background: #f5f2ee; border-right: 1px solid #e8e2da; padding: 28px 14px; display: grid; gap: 2px; } .ds-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 22px; } .ds-wm { font-size: 18px; font-weight: 600; letter-spacing: .26em; text-transform: uppercase; line-height: 1.2; color: #141414; } .ds-wm small { display: block; margin-top: 4px; font-size: 11px; font-weight: 400; letter-spacing: .1em; color: #625a52; } .ds-nav { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: none; border-radius: 4px; padding: 10px 12px; text-align: left; font-size: 14.5px; color: #141414; cursor: pointer; transition: background-color .15s ease; } .ds-nav .ds-icon { color: #625a52; transition: color .15s ease; } .ds-nav:hover { background: #ebe5dd; } .ds-nav[aria-current=page] { background: #ebe5dd; font-weight: 600; } .ds-nav[aria-current=page] .ds-icon { color: #7a5a43; } .ds-nav:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; }"
+    },
+    {
+      "name": "Product Tile",
+      "kind": "card",
+      "refersTo": "product-stage",
+      "description": "Square sand stage with a rank tag, then brand, title, reason, price and Choose.",
+      "html": "<article class=\"ds-rec\"><div class=\"ds-stage\"><span class=\"ds-initial\">Brand</span><span class=\"ds-rank ds-top\">Top pick</span></div><div class=\"ds-info\"><div class=\"ds-title\">Lightweight road running shoe</div><div class=\"ds-brandname\">Brand</div><p class=\"ds-why\">Fits the budget and suits daily road runs.</p><div class=\"ds-buy\"><span class=\"ds-price\">$89.00</span><button class=\"ds-choose\">Choose</button></div></div></article>",
+      "css": ".ds-rec { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; width: 220px; display: flex; flex-direction: column; color: #141414; } .ds-stage { position: relative; aspect-ratio: 1; background: #f5f2ee; border-radius: 6px; display: grid; place-items: center; padding: 20px; box-shadow: inset 0 0 0 1px transparent; transition: box-shadow .15s ease; } .ds-rec:hover .ds-stage { box-shadow: inset 0 0 0 1px #e8e2da; } .ds-initial { font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: #625a52; } .ds-rank { position: absolute; top: 10px; left: 10px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 2px; background: #fff; letter-spacing: .1em; text-transform: uppercase; } .ds-top { background: #7a5a43; color: #fff; } .ds-info { display: flex; flex-direction: column; gap: 3px; padding: 12px 2px 0; } .ds-brandname { order: -1; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #625a52; } .ds-title { font-size: 14.5px; font-weight: 500; line-height: 1.4; } .ds-why { color: #625a52; font-size: 13px; line-height: 1.5; margin: 4px 0 0; } .ds-buy { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; } .ds-price { font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; } .ds-choose { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; background: #fff; border: 1px solid #d3cbc1; border-radius: 4px; padding: 7px 14px; font-size: 14px; font-weight: 500; cursor: pointer; transition: border-color .15s ease; } .ds-choose:hover { border-color: #141414; } .ds-choose:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ruled Out List",
+      "kind": "custom",
+      "refersTo": "ruled-out",
+      "description": "Uppercase espresso toggle; hairline rows with price and reason per rejected product.",
+      "html": "<details class=\"ds-out\" open><summary>Ruled out (1)<svg class=\"ds-icon\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"M8 5l5 5-5 5\"/></svg></summary><ul><li><span>Trail shoe</span><span class=\"ds-num\">$129.00</span><span class=\"ds-why\">Over the $100 budget.</span></li></ul></details>",
+      "css": ".ds-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-out { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; max-width: 420px; font-size: 14px; color: #141414; } .ds-out summary { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; list-style: none; color: #6b4e3a; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; border-radius: 2px; } .ds-out summary::-webkit-details-marker { display: none; } .ds-out summary .ds-icon { width: 15px; height: 15px; transition: transform .15s ease; } .ds-out[open] summary .ds-icon { transform: rotate(90deg); } .ds-out summary:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; } .ds-out ul { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid #e8e2da; } .ds-out li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding: 12px 0; border-bottom: 1px solid #e8e2da; } .ds-num { font-variant-numeric: tabular-nums; } .ds-why { grid-column: 1 / -1; color: #625a52; font-size: 13px; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "Status text with a matching 7px dot; colour only for state.",
+      "html": "<span class=\"ds-chips\"><span class=\"ds-chip ds-ok\">Paid</span><span class=\"ds-chip ds-part\">Partly refunded</span><span class=\"ds-chip ds-bad\">Payment failed</span><span class=\"ds-chip\">Refunded</span></span>",
+      "css": ".ds-chips { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; display: inline-flex; gap: 18px; } .ds-chip { font-size: 12.5px; font-weight: 500; color: #625a52; display: inline-flex; align-items: center; gap: 6px; } .ds-chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; } .ds-ok { color: #1f7a3d; } .ds-part { color: #8f5a00; } .ds-bad { color: #b3261e; }"
+    },
+    {
+      "name": "Notice Strip with Mock Badge",
+      "kind": "custom",
+      "refersTo": "mock-badge",
+      "description": "Sand strip with the simulation sentence and amber mock-mode badges; a required trust cue.",
+      "html": "<div class=\"ds-notice\"><p>Orders are a concierge-style simulation: no real money moves and nothing ships.</p><span class=\"ds-badge\">Mock PayPal (no PayPal credentials)</span></div>",
+      "css": ".ds-notice { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; background: #f5f2ee; border-bottom: 1px solid #e8e2da; color: #625a52; font-size: 12.5px; padding: 9px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; } .ds-notice p { margin: 0; } .ds-badge { font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 6px; background: #fff4e5; color: #7a4a00; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Store",
+    "overview": "The page looks like a luxury store's own website, not a chat app. It uses white space, black type, thin sand-coloured lines and product pictures on a sand backdrop. The goal is that prices, the order total and the pay button look calm and certain. Nothing decorative competes with the money steps.\n\nThere is one main colour pair: white and sand for surfaces, black for type and the money buttons. Espresso brown is the only accent, used in small amounts to mark what matters: the top pick, the chosen product, the current view, the agent's name. Green, amber and red appear only to report a state. The owner rejected chat-app chrome: tinted bubbles everywhere, pill buttons, saturated deep fills, navy and bright blue, and an icon logo.",
+    "keyCharacteristics": [
+      "White main area, sand sidebar, sand notice strip, sand product backdrops.",
+      "Thin hairlines instead of shadows.",
+      "Near-square corners (2, 4 and 6 px).",
+      "Small uppercase tracked labels for titles and tags; controls in sentence case.",
+      "Black buttons only where the user acts on the conversation or on money.",
+      "System font stack, no web fonts (owner's brand commitment).",
+      "Motion is only 150 ms state transitions."
+    ],
+    "rules": [
+      {
+        "name": "The Espresso Is a Highlight Rule",
+        "body": "Espresso marks one thing per area: what is chosen, current, or recommended first. It never fills a large surface or a button at rest.",
+        "section": "colors"
+      },
+      {
+        "name": "The State-Only Colour Rule",
+        "body": "Green, amber and red mean a status, an error or a destructive action. They are never decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Labels Shout, Controls Speak Rule",
+        "body": "Uppercase tracking is for labels and card titles only. Every button and input stays in sentence case.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "Every price, total, quantity and status uses tabular figures so amounts line up.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "Separate things with a 1 px `hairline` line or a change of tone, never with a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Black Button Rule",
+        "body": "On any money card there is exactly one black full-width button, and it is the step that moves money after a human click.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** use the tokens in `:root` of `static/index.html`; add a new colour only for a new state.",
+      "**Do** keep espresso to one highlight per area (chosen, current, top pick, agent name).",
+      "**Do** separate content with 1 px `hairline` lines and tone, and keep surfaces flat.",
+      "**Do** keep corners at 2, 4 or 6 px.",
+      "**Do** use tabular figures for every amount.",
+      "**Do** limit motion to 150 ms ease transitions of colour, border, ring and the chevron turn, and turn them off under reduced motion.",
+      "**Do** keep every trust cue listed under Components with its exact text."
+    ],
+    "donts": [
+      "**Don't** use pill buttons, saturated deep fills, navy or bright blue.",
+      "**Don't** add drop shadows or entrance animations.",
+      "**Don't** put uppercase tracking on buttons or inputs.",
+      "**Don't** use green, amber or red for anything but a state, an error or a destructive action.",
+      "**Don't** use a PayPal logo, wordmark or font, or anything that makes the page look like an official PayPal page.",
+      "**Don't** load web fonts or icon libraries; icons are inline SVG line drawings.",
+      "**Don't** let a decorative element sit closer to the eye than a price, a total, or the pay and refund buttons."
+    ]
+  }
+}

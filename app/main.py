@@ -156,6 +156,12 @@ def paypal_cancel(order_id: int, request: Request):
     return RedirectResponse(f"/?order_id={order_id}", status_code=303)
 
 
+@app.get("/api/orders")
+def list_orders(request: Request):
+    """The page's Orders view: this user's latest orders. Read-only, same view as one order."""
+    return [checkout.order_view(o) for o in store.list_orders(request.state.user_id, limit=20)]
+
+
 @app.get("/api/orders/{order_id}")
 def get_order(order_id: int, request: Request):
     """F14: the result page reads the stored order; only the owner can see it."""

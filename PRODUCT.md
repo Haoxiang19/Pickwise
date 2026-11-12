@@ -54,8 +54,9 @@ The project's main differentiator overall is its evaluation data on recommendati
 
 Binding constraints from the owner (recorded, not expanded):
 
-- Name shown on the page: "Shopping Agent". A small original mark for it as inline SVG is allowed.
-- It should feel at home next to a PayPal checkout (deep navy and bright blue as the accent family, white cards on a very light grey background, rounded buttons, amounts easy to scan) but must **not** imitate PayPal: no PayPal logo or wordmark, no PayPal Sans, nothing that makes it look like an official PayPal page. It is a third-party demo that only pays through PayPal.
+- Name shown on the page: "Pickwise" (owner's choice, 2026-11-12), with "Shopping Agent" as its descriptor. The repository and README still say "PayPal Shopping Agent". A small original mark as inline SVG is allowed. Trademark availability of the name was not checked.
+- Style reference (owner's choice, 2026-11-12, replacing the earlier navy-and-blue brief and a later Apple Store pass): a luxury store such as Byredo or a high-end department store. Simple, premium colours that are not heavy or dark: white and sand, black type and buttons, hairlines, and espresso brown only for highlights (owner's pick from the blend comparison); other colour only for state. Not overdone: soft corners, sentence-case controls, no black bars. Left sidebar with icon navigation, centred conversation. The owner rejected the generic "AI" look (navy and bright blue, pill buttons everywhere, saturated deep fills) and an icon logo that read as a trash can; the brand is the PICKWISE wordmark with a small mark of three stacked cards, the front one checked (owner's pick). Borrow the feel only: no brand's logo, name, fonts or exact layout.
+- Must **not** imitate PayPal either: no PayPal logo or wordmark, no PayPal Sans, nothing that makes it look like an official PayPal page. It is a third-party demo that only pays through PayPal.
 - System font stack.
 - Polished and modern, with its own visual identity, yet nothing decorative may compete with prices, totals, or the payment and refund steps.
 - Motion: only subtle hover, focus and state transitions (about 150 ms). No entrance animations or effects. Effect commands (`animate`, `delight`, `overdrive`, `bolder`) are not used unless the owner asks.

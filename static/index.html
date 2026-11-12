@@ -3,62 +3,286 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shopping Agent</title>
+<title>Pickwise · Shopping Agent</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='8' y='4' width='16' height='4' rx='1' fill='%237a5a43' opacity='.3'/%3E%3Crect x='5' y='9.5' width='22' height='5' rx='1' fill='%237a5a43' opacity='.55'/%3E%3Crect x='2' y='16' width='28' height='13' rx='1.5' fill='%237a5a43'/%3E%3Cpath d='M11.5 22.5l3 3 6-6.5' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 16px; color: #1a1a1a; background: #fafafa; }
-  h1 { font-size: 1.3rem; margin: 0 0 8px; }
-  .sim { font-size: .85rem; color: #555; margin: 0 0 8px; }
-  .badge { display: inline-block; font-size: .75rem; padding: 2px 8px; margin: 0 4px 4px 0; border-radius: 10px; background: #fff3cd; border: 1px solid #e0c060; }
-  #log { margin: 12px 0; }
-  .msg { padding: 8px 12px; margin: 8px 0; border-radius: 8px; white-space: pre-wrap; }
-  .user { background: #e7f0ff; margin-left: 15%; }
-  .bot { background: #fff; border: 1px solid #ddd; margin-right: 15%; }
-  .waiting { color: #555; font-style: italic; }
-  .error { border-color: #b00020; color: #8a0018; }
-  .card { overflow: hidden; }
-  .thumb { float: left; width: 64px; height: 64px; object-fit: contain; margin: 0 12px 4px 0; background: #fff; }
-  .option .thumb { float: none; width: 40px; height: 40px; margin: 0 6px; vertical-align: middle; }
-  #examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
-  #examples button, .result button, .orders button { font-size: .85rem; padding: 4px 10px; }
-  .result li button { margin-left: 8px; }
-  .orders li { margin: 6px 0; }
-  .card { background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
-  .price { font-weight: 600; }
-  .note { color: #8a5a00; }
-  .summary { background: #fff; border: 2px solid #0070ba; border-radius: 8px; padding: 12px; margin: 8px 0; }
-  .summary table { border-collapse: collapse; width: 100%; }
-  .summary td { padding: 2px 0; }
-  .summary td:last-child { text-align: right; }
-  .result { border-radius: 8px; padding: 12px; margin: 8px 0; border: 2px solid #b00020; background: #fff; }
-  .result.ok { border-color: #1e7e34; }
-  #memory { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 4px 12px; margin: 8px 0; font-size: .9rem; }
-  #memory li { margin: 4px 0; }
-  #memory button { font-size: .8rem; padding: 2px 8px; margin-left: 6px; }
-  .total td { font-weight: 700; border-top: 1px solid #ccc; padding-top: 6px; }
-  details { margin: 8px 0; font-size: .9rem; }
-  fieldset.card legend { font-weight: 600; padding: 0 4px; }
-  .option { display: block; padding: 6px 0; border-top: 1px solid #eee; }
-  .option:first-of-type { border-top: 0; }
-  .option .reason { font-size: .9rem; color: #444; margin-left: 24px; }
-  form { display: flex; gap: 8px; position: sticky; bottom: 0; background: #fafafa; padding: 8px 0; }
-  input[type=text] { flex: 1; padding: 10px; font-size: 1rem; }
-  button { padding: 8px 14px; font-size: 1rem; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: default; }
+  /* Quiet luxury: white and sand, black type and buttons, hairlines, near-square corners, espresso only for highlights. */
+  :root {
+    --bg: #fff; --stone: #f5f2ee; --stone-2: #ebe5dd; --line: #e8e2da; --ink: #141414; --muted: #625a52;
+    --accent: #7a5a43; --accent-ink: #6b4e3a; --accent-tint: #f1eae2; --control: #d3cbc1;
+    --green: #1f7a3d; --amber: #8f5a00; --red: #b3261e;
+    --font: "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, Arial, sans-serif;
+    --track: .1em; --r: 4px; --r-lg: 6px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scrollbar-color: var(--control) transparent; }
+  body { margin: 0; font: 15px/1.6 var(--font); color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; }
+  ::selection { background: var(--accent-tint); }
+  input { caret-color: var(--accent); }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .price, table, .chip, .num { font-variant-numeric: tabular-nums; }
+  svg.icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Notice: the simulation sentence and mock badges on a quiet stone strip. */
+  .notice { background: var(--stone); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12.5px; padding: 9px 0; }
+  .notice .column { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+  .sim { margin: 0; flex: 1 1 360px; }
+  #badges { display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge { font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 6px; background: #fff4e5; color: #7a4a00; }
+
+  /* Layout: a stone sidebar, the current view centred beside it. */
+  .app { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+  .side { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--stone); border-right: 1px solid var(--line); padding: 28px 14px; display: flex; flex-direction: column; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+  .brand svg { flex: none; }
+  .brand h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: .26em; text-transform: uppercase; line-height: 1.2; }
+  .brand small { display: block; margin-top: 4px; font-size: 11px; font-weight: 400; color: var(--muted); text-transform: uppercase; letter-spacing: var(--track); }
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .view { flex: 1; display: flex; flex-direction: column; }
+  .view[hidden] { display: none; }
+  .column { width: 100%; max-width: 780px; margin: 0 auto; padding: 0 32px; }
+
+  /* Sidebar navigation: the current view on a sand band with its icon in espresso. */
+  .nav { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .nav button { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: none; border-radius: var(--r); padding: 10px 12px; text-align: left; font-size: 14.5px; color: var(--ink); }
+  .nav button svg { color: var(--muted); transition: color .15s ease; }
+  .nav button:hover { background: var(--stone-2); color: var(--ink); }
+  .nav button[aria-current="page"] { background: var(--stone-2); font-weight: 600; }
+  .nav button[aria-current="page"] svg { color: var(--accent); }
+  .count { margin-left: auto; font-size: 12.5px; font-weight: 400; color: var(--muted); }
+
+  /* Buttons: black for the money step, outlined elsewhere, underlined text for small actions. */
+  button { cursor: pointer; border-radius: var(--r); padding: 9px 16px; font-size: 14px; font-weight: 500; border: 1px solid var(--control); background: var(--bg); color: var(--ink);
+           transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+  button:hover { border-color: var(--ink); }
+  button.primary { background: var(--ink); border-color: var(--ink); color: #fff; padding: 15px 20px; font-size: 15px; width: 100%; }
+  button.primary:hover { background: #333; border-color: #333; }
+  button.link { border: 0; background: none; padding: 2px 0; border-radius: 4px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+  button.link:hover { color: var(--muted); }
+  button.link.danger { color: var(--red); }
+  button:disabled, button:disabled:hover { opacity: .45; cursor: default; }
+  #new-chat { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: var(--bg); }
+
+  /* Empty state: a large headline and the examples as a hairline list. */
+  #welcome { padding: 80px 0 24px; }
+  #welcome h2 { font-size: 42px; font-weight: 400; line-height: 1.12; letter-spacing: -.025em; margin: 0 0 12px; }
+  #welcome p { margin: 0 0 32px; color: var(--muted); }
+  #examples { display: grid; border-top: 1px solid var(--line); }
+  #examples button { display: flex; justify-content: space-between; align-items: center; gap: 16px; border: 0; border-radius: 0; border-bottom: 1px solid var(--line); padding: 17px 4px; font-size: 16px; font-weight: 400; text-align: left; background: none; }
+  #examples button:hover { color: var(--accent-ink); }
+  #examples svg { color: var(--muted); }
+  #examples .ask { flex: 1; }
+  #examples .hint { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  @media (max-width: 860px) {
+    #examples button { flex-wrap: wrap; gap: 2px 12px; }
+    #examples .ask { flex-basis: calc(100% - 40px); }
+    #examples svg { order: 2; }
+    #examples .hint { order: 3; flex-basis: 100%; }
+  }
+
+  /* Conversation: the shopper's words on an espresso tint; the agent's turn under its name. */
+  #log { padding: 32px 0 8px; }
+  .user { margin: 26px 0 26px auto; width: fit-content; max-width: 78%; background: var(--accent-tint); color: #2b2018; padding: 11px 17px; border-radius: var(--r-lg); white-space: pre-wrap; }
+  .turn { margin: 26px 0; }
+  .who { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--accent-ink); }
+  .who-mark { width: 14px; height: 14px; }
+  .reply { margin: 0; white-space: pre-wrap; font-size: 16px; }
+  .waiting { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+  .spinner { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--line); border-top-color: var(--accent); animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { display: flex; gap: 10px; align-items: flex-start; border: 1px solid #e7b3af; background: #fdf6f5; color: var(--red); padding: 12px 14px; border-radius: var(--r); margin: 8px 0; }
+  .note { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
+
+  /* Recommendations: product tiles on a sand backdrop, text beneath, the top pick marked in espresso. */
+  .recs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 20px 0 8px; }
+  .rec { display: flex; flex-direction: column; }
+  .stage { position: relative; aspect-ratio: 1; background: var(--stone); border-radius: var(--r-lg); display: grid; place-items: center; padding: 20px; box-shadow: inset 0 0 0 1px transparent; transition: box-shadow .15s ease; }
+  .rec:hover .stage { box-shadow: inset 0 0 0 1px var(--line); }
+  .rec.chosen .stage { box-shadow: inset 0 0 0 2px var(--accent); }
+  .stage .thumb { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
+  .stage .initial { font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); text-align: center; }
+  .rank { position: absolute; top: 10px; left: 10px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 2px; background: var(--bg); color: var(--ink); letter-spacing: var(--track); text-transform: uppercase; }
+  .rec:first-child .rank { background: var(--accent); color: #fff; }
+  .rec .info { display: flex; flex-direction: column; gap: 3px; padding: 12px 2px 0; flex: 1; }
+  .rec .brandname { order: -1; font-size: 11px; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; color: var(--muted); }
+  .rec .title { margin: 0; font-size: 14.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rec .why { color: var(--muted); font-size: 13px; line-height: 1.5; flex: 1; margin: 4px 0 0; }
+  .rec .buy { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
+  .price { font-weight: 600; font-size: 16px; }
+  .rec .buy button { padding: 7px 14px; }
+  .rec.chosen .buy button { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Ruled out: a hairline list, price and reason for each. */
+  details.out { margin: 14px 0 4px; font-size: 14px; }
+  details.out summary { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; list-style: none; color: var(--accent-ink); border-radius: 2px; font-size: 12px; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; }
+  details.out summary::-webkit-details-marker { display: none; }
+  details.out summary svg { width: 15px; height: 15px; transition: transform .15s ease; }
+  details.out[open] summary svg { transform: rotate(90deg); }
+  details.out ul { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid var(--line); }
+  details.out li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  details.out .why { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+
+  /* A set: one group per item, the chosen option on an espresso tint. */
+  fieldset.group { border: 0; border-top: 1px solid var(--line); margin: 16px 0; padding: 12px 0 0; }
+  fieldset.group legend { float: left; width: 100%; padding: 0 0 8px; font-weight: 600; }
+  .option { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 2px 14px; padding: 11px 12px; margin: 0 -12px; border-radius: var(--r); cursor: pointer; transition: background-color .15s ease; }
+  .option:has(input:checked) { background: var(--accent-tint); }
+  .option input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .option .thumb { grid-column: 2; width: 44px; height: 44px; object-fit: contain; background: var(--stone); border-radius: var(--r); mix-blend-mode: multiply; }
+  .option .name { grid-column: 3; font-size: 14.5px; }  /* fixed columns: a picture that fails to load is removed */
+  .option .price { grid-column: 4; font-size: 15px; }
+  .option .reason { grid-column: 3 / -1; font-size: 13px; color: var(--muted); }
+  .set-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 16px 0 4px; }
+  .set-total { margin: 0; font-size: 16px; }
+
+  /* Money steps: order summary and refund draft, like a store's bag page. */
+  .summary, .result, .orders { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 26px 26px 22px; margin: 20px 0; background: var(--bg); }
+  h3.card-title { font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 14px; }
+  .summary table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .summary td { padding: 13px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .summary td:last-child { text-align: right; padding-left: 16px; white-space: nowrap; }
+  .summary tr.head td { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; padding-top: 0; }
+  .summary tr.total td { border-bottom: 0; padding-top: 18px; font-size: 22px; font-weight: 600; }
+  .summary .amount { display: flex; justify-content: space-between; font-size: 22px; font-weight: 600; padding: 16px 0 4px; }
+  .summary .primary { margin-top: 16px; }
+  .summary .note { text-align: center; }
+
+  /* Orders: number and status first, lines with their server prices, refunded lines struck. */
+  .result.failed { border-color: #e7b3af; }
+  .result .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .result .head h3 { margin: 0; }
+  .result .msgline { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+  .chip { flex: none; font-size: 12.5px; font-weight: 500; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+  .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .chip[data-status="COMPLETED"] { color: var(--green); }
+  .chip[data-status="PARTIALLY_REFUNDED"] { color: var(--amber); }
+  .chip[data-status="CANCELLED"], .chip[data-status="AMOUNT_MISMATCH"], .chip[data-status="CAPTURE_FAILED"] { color: var(--red); }
+  .lines { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--line); }
+  .lines li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .lines .act { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; font-size: 14px; }
+  .lines li.refunded .what, .lines li.refunded .num { color: var(--muted); text-decoration: line-through; }
+  .tag { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--stone); padding: 1px 8px; border-radius: 6px; }
+  .totals { margin: 14px 0 0; display: grid; gap: 4px; }
+  .totals div { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+  .totals .grand { font-size: 20px; font-weight: 600; color: var(--ink); }
+  .meta { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  .result-foot { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
+  .result-foot .note { margin: 0; flex: 1 1 260px; }
+  .result a { color: var(--ink); text-underline-offset: 4px; }
+  .orders ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .orders li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .orders .row-top { display: flex; align-items: center; gap: 14px; font-weight: 500; }
+  .orders .items { color: var(--muted); font-size: 13px; grid-column: 1; }
+  .orders li > button { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+
+  /* Orders and memory pages */
+  .page { padding-top: 52px; padding-bottom: 64px; }
+  .page h2 { font-size: 34px; font-weight: 400; letter-spacing: -.025em; line-height: 1.15; margin: 0 0 8px; }
+  .page .lead { color: var(--muted); margin: 0 0 28px; max-width: 60ch; }
+  .page .result { margin: 0 0 18px; }
+  .empty-state { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 52px 24px; background: var(--stone); border-radius: var(--r-lg); color: var(--muted); }
+  .empty-state svg { width: 24px; height: 24px; }
+  #memory-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  #memory-list li { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .pref-icon { width: 38px; height: 38px; border-radius: var(--r); background: var(--accent-tint); color: var(--accent-ink); display: grid; place-items: center; }
+  .strength { display: block; margin-top: 1px; color: var(--muted); font-size: 12.5px; }
+
+  /* Input, docked at the bottom of the conversation. */
+  .composer { position: sticky; bottom: 0; background: linear-gradient(rgba(255,255,255,0), var(--bg) 24px); padding: 24px 0 22px; margin-top: auto; }
+  #form { display: flex; gap: 6px; border: 1px solid var(--control); border-radius: var(--r-lg); padding: 6px; background: var(--bg); transition: border-color .15s ease; }
+  #form:focus-within { border-color: var(--ink); }
+  #input { flex: 1; min-width: 0; border: 0; outline: 0; padding: 8px 10px; font-size: 15px; background: none; }
+  #input::placeholder { color: #75746f; }
+  #send { background: var(--ink); border-color: var(--ink); color: #fff; padding: 8px 20px; }
+  #send:hover { background: #333; }
+
+  /* Phone: the sidebar becomes a top bar with the views as three tabs. */
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 14px 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .brand { flex: 1; padding: 0 4px; }
+    .brand h1 { font-size: 17px; }
+    #new-chat { width: auto; padding: 7px 12px; font-size: 13.5px; }
+    .nav { flex-basis: 100%; grid-template-columns: repeat(3, 1fr); }
+    .nav button { flex-direction: column; gap: 3px; padding: 7px 2px; font-size: 12px; text-align: center; }
+    .count { display: none; }
+    .column { padding: 0 16px; }
+    #welcome { padding: 40px 0 16px; }
+    #welcome h2 { font-size: 30px; }
+    .recs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .rec .buy { flex-direction: column; align-items: stretch; }
+    .rec:first-child { grid-column: 1 / -1; }
+    .rec:first-child .stage { aspect-ratio: 2 / 1; }
+    .user { max-width: 90%; }
+    .summary, .result, .orders { padding: 20px 18px; }
+    .page { padding-top: 30px; padding-bottom: 32px; }
+    .page h2 { font-size: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } .spinner { animation-duration: 3s; } }
 </style>
 </head>
 <body>
-<h1>Shopping Agent</h1>
-<p class="sim">Demo: products come from outside retailers, but payment goes to this project's own PayPal sandbox
-merchant account. Orders are a concierge-style simulation: no real money moves and nothing ships.</p>
-<div id="badges"></div>
-<button id="new-chat" type="button">New conversation</button>
-<details id="memory"><summary>What I remember</summary><ul id="memory-list"></ul></details>
-<div id="log"></div>
-<div id="examples" aria-label="Example requests"></div>
-<form id="form">
-  <input id="input" type="text" placeholder="Describe what you need, e.g. running shoes under $100" autocomplete="off" required>
-  <button id="send">Send</button>
-</form>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 32 32"><rect x="8" y="4" width="16" height="4" rx="1" fill="#7a5a43" opacity=".3"/><rect x="5" y="9.5" width="22" height="5" rx="1" fill="#7a5a43" opacity=".55"/><rect x="2" y="16" width="28" height="13" rx="1.5" fill="#7a5a43"/><path d="M11.5 22.5l3 3 6-6.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 20 20"><path d="M4 4.5h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 20 20"><path d="M4.5 7h11l-.8 9.2a1 1 0 0 1-1 .8H6.3a1 1 0 0 1-1-.8z"/><path d="M7.5 7a2.5 2.5 0 0 1 5 0"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 20 20"><path d="M6 3.5h8a1 1 0 0 1 1 1v12l-5-3.2-5 3.2v-12a1 1 0 0 1 1-1z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 20 20"><path d="M4 10h11M11 6l4 4-4 4"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 20 20"><path d="M8 5l5 5-5 5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 6.5v4.2M10 13.4v.1"/></symbol>
+</svg>
+<div class="app">
+<aside class="side">
+  <div class="brand"><svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark"/></svg><h1>Pickwise<small>Shopping Agent</small></h1></div>
+  <button id="new-chat" type="button"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New conversation</button>
+  <nav aria-label="Views"><ul class="nav">
+    <li><button type="button" data-view="chat" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Chat</button></li>
+    <li><button type="button" data-view="orders"><svg class="icon" aria-hidden="true"><use href="#i-bag"/></svg>Orders</button></li>
+    <li><button type="button" data-view="memory"><svg class="icon" aria-hidden="true"><use href="#i-mark"/></svg>What I remember<span class="count" id="memory-count"></span></button></li>
+  </ul></nav>
+</aside>
+<main class="main">
+  <div class="notice"><div class="column">
+    <p class="sim">Demo: products come from outside retailers, but payment goes to this project's own PayPal sandbox
+    merchant account. Orders are a concierge-style simulation: no real money moves and nothing ships.</p>
+    <div id="badges"></div>
+  </div></div>
+  <section class="view" id="view-chat" aria-label="Chat">
+    <div class="column">
+      <section id="welcome" aria-labelledby="welcome-title">
+        <h2 id="welcome-title">What are you shopping for?</h2>
+        <p>Describe it in one sentence, with a budget. You approve every payment yourself.</p>
+        <div id="examples" aria-label="Example requests"></div>
+      </section>
+      <div id="log" role="log" aria-live="polite"></div>
+    </div>
+    <div class="composer"><div class="column">
+      <form id="form">
+        <label for="input" class="sr-only">Message</label>
+        <input id="input" type="text" placeholder="Describe what you need, e.g. running shoes under $100" autocomplete="off" required>
+        <button id="send">Send</button>
+      </form>
+    </div></div>
+  </section>
+  <section class="view" id="view-orders" aria-labelledby="orders-title" hidden>
+    <div class="column page">
+      <h2 id="orders-title">Orders</h2>
+      <p class="lead">Your latest orders and their status. A refund is drafted in the chat and is sent only when you click Confirm refund.</p>
+      <div id="order-list"></div>
+    </div>
+  </section>
+  <section class="view" id="view-memory" aria-labelledby="memory-title" hidden>
+    <div class="column page">
+      <h2 id="memory-title">What I remember</h2>
+      <p class="lead">Lasting preferences the agent uses as soft hints when it ranks products. Delete any you do not want kept.</p>
+      <ul id="memory-list"></ul>
+    </div>
+  </section>
+</main>
+</div>
 <script>
 const log = document.getElementById("log");
 
@@ -69,11 +293,40 @@ function el(tag, text, cls) {
   if (cls) e.className = cls;
   return e;
 }
+// An icon from the sprite at the top of the page (only fixed ids, never product text).
+function icon(id, cls = "icon") {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", cls); svg.setAttribute("aria-hidden", "true");
+  const use = svg.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "use"));
+  use.setAttribute("href", "#" + id);
+  return svg;
+}
 const dollars = cents => "$" + (cents / 100).toFixed(2);
-function add(node) { log.appendChild(node); node.scrollIntoView({block: "end"}); return node; }
+
+// Where agent output goes: the body of the agent's current turn in the chat, or a page's own list.
+let target = log;
+function add(node, parent = target) {
+  parent.appendChild(node);
+  if (log.contains(parent)) node.scrollIntoView({block: "end"});
+  return node;
+}
+// One agent turn: the agent's name, then everything it shows.
+function agentTurn() {
+  const turn = log.appendChild(el("div", undefined, "turn"));
+  const who = turn.appendChild(el("div", undefined, "who"));
+  who.appendChild(icon("mark", "who-mark"));
+  who.append("Pickwise");
+  target = turn.appendChild(el("div", undefined, "body"));
+  return target;
+}
 
 // A failure keeps the server's message and gets its own style.
-function showError(err) { add(el("div", "Error: " + err.message, "msg bot error")); }
+function showError(err, parent = target) {
+  const box = add(el("div", undefined, "error"), parent);
+  box.setAttribute("role", "alert");
+  box.appendChild(icon("i-alert"));
+  box.appendChild(el("span", "Error: " + err.message));
+}
 
 // Product image from the catalog. Only https URLs are used, and a picture that fails to load is removed.
 function thumb(url) {
@@ -96,19 +349,33 @@ async function api(path, body, method) {
 
 function showRecommendations(data) {
   const box = add(el("div"));
-  for (const r of data.recommendations || []) {
-    const card = box.appendChild(el("div", undefined, "card"));
+  const grid = box.appendChild(el("div", undefined, "recs"));
+  (data.recommendations || []).forEach((r, i) => {
+    const card = grid.appendChild(el("article", undefined, "rec"));
+    // The stage shows the brand until (and unless) the catalog picture loads over it.
+    const stage = card.appendChild(el("div", undefined, "stage"));
     const picture = thumb(r.image);
-    if (picture) card.appendChild(picture);
-    card.appendChild(el("div", r.title + (r.brand ? " - " + r.brand : "")));
-    card.appendChild(el("div", dollars(r.price_cents), "price"));
-    card.appendChild(el("div", r.reason));
-    const choose = card.appendChild(el("button", "Choose"));
+    if (picture) stage.appendChild(picture);
+    else stage.appendChild(el("span", r.brand || r.title, "initial"));
+    if (picture) picture.addEventListener("error", () => stage.appendChild(el("span", r.brand || r.title, "initial")));
+    stage.appendChild(el("span", i === 0 ? "Top pick" : "Pick " + (i + 1), "rank"));
+    const info = card.appendChild(el("div", undefined, "info"));
+    info.appendChild(el("h4", r.title, "title"));
+    if (r.brand) info.appendChild(el("div", r.brand, "brandname"));
+    info.appendChild(el("p", r.reason, "why"));
+    const buy = info.appendChild(el("div", undefined, "buy"));
+    buy.appendChild(el("span", dollars(r.price_cents), "price"));
+    const choose = buy.appendChild(el("button", "Choose"));
+    choose.setAttribute("aria-label", "Choose " + r.title);
     choose.onclick = async () => {
+      for (const c of grid.children) {
+        c.classList.toggle("chosen", c === card);
+        c.querySelector(".buy button").textContent = c === card ? "Chosen" : "Choose";
+      }
       try { showSummary(await api("/api/cart", {product_id: r.id, quantity: 1})); }
       catch (err) { showError(err); }
     };
-  }
+  });
   if (data.budget_note) box.appendChild(el("p", data.budget_note, "note"));
   if (data.note) box.appendChild(el("p", data.note, "note"));
   showRejected(box, data.rejected);
@@ -117,11 +384,15 @@ function showRecommendations(data) {
 // F6: what was ruled out and why. In a set (F22) each entry also names its item.
 function showRejected(box, rejected) {
   if (!rejected || !rejected.length) return;
-  const d = box.appendChild(el("details"));
-  d.appendChild(el("summary", `Ruled out (${rejected.length})`));
+  const d = box.appendChild(el("details", undefined, "out"));
+  const summary = d.appendChild(el("summary", `Ruled out (${rejected.length})`));
+  summary.appendChild(icon("i-chev"));
   const ul = d.appendChild(el("ul"));
   for (const x of rejected) {
-    ul.appendChild(el("li", `${x.item ? x.item + ": " : ""}${x.title} (${x.price_cents == null ? "no price" : dollars(x.price_cents)}): ${x.reason}`));
+    const li = ul.appendChild(el("li"));
+    li.appendChild(el("span", (x.item ? x.item + ": " : "") + x.title));
+    li.appendChild(el("span", x.price_cents == null ? "no price" : dollars(x.price_cents), "num"));
+    li.appendChild(el("span", x.reason, "why"));
   }
 }
 
@@ -134,10 +405,10 @@ function showBundle(set) {
   const groups = [];
   setCount += 1;
   const total = el("p", set.total_cents == null ? "" : "Set total: " + dollars(set.total_cents)
-    + (set.budget_cents == null ? " (no budget limit)" : " (budget " + dollars(set.budget_cents) + ")"), "price");
+    + (set.budget_cents == null ? " (no budget limit)" : " (budget " + dollars(set.budget_cents) + ")"), "price set-total");
   set.items.forEach((item, i) => {
-    const group = box.appendChild(el("fieldset", undefined, "card"));
-    group.appendChild(el("legend", item.quantity + " x " + item.name));
+    const group = box.appendChild(el("fieldset", undefined, "group"));
+    group.appendChild(el("legend", item.quantity + " × " + item.name));
     for (const p of [item.chosen, ...item.alternatives]) {
       const label = group.appendChild(el("label", undefined, "option"));
       const radio = label.appendChild(el("input"));
@@ -145,17 +416,18 @@ function showBundle(set) {
       radio.onchange = () => { total.textContent = "The total is recalculated when you review the set."; };
       const picture = thumb(p.image);
       if (picture) label.appendChild(picture);
-      label.append(" " + p.title + (p.brand ? " - " + p.brand : "") + " ");
+      label.appendChild(el("span", p.title + (p.brand ? " - " + p.brand : ""), "name"));
       label.appendChild(el("span", dollars(p.price_cents), "price"));
       label.appendChild(el("div", p.reason, "reason"));
     }
     groups.push({group, quantity: item.quantity});
   });
-  if (set.items.length) box.appendChild(total);
   if (set.budget_note) box.appendChild(el("p", set.budget_note, "note"));
   if (set.note) box.appendChild(el("p", set.note, "note"));
   if (set.items.length) {
-    const review = box.appendChild(el("button", "Review this set"));
+    const foot = box.appendChild(el("div", undefined, "set-foot"));
+    foot.appendChild(total);
+    const review = foot.appendChild(el("button", "Review this set"));
     review.onclick = async () => {
       const items = groups.map(g => ({product_id: g.group.querySelector("input:checked").value, quantity: g.quantity}));
       // The server prices the cart and refuses a set over the budget; its message is shown as is.
@@ -168,23 +440,23 @@ function showBundle(set) {
 
 // F8: order summary. Every number here comes from the server.
 function showSummary(cart) {
-  const box = add(el("div", undefined, "summary"));
-  box.appendChild(el("strong", "Order summary"));
+  const box = add(el("section", undefined, "summary"));
+  box.appendChild(el("h3", "Order summary", "card-title"));
   const table = box.appendChild(el("table"));
   const row = (label, value, cls) => {
     const tr = table.appendChild(el("tr", undefined, cls));
     tr.appendChild(el("td", label)); tr.appendChild(el("td", value));
   };
-  row("Product", "Unit price x quantity");
-  for (const item of cart.items) row(item.title, dollars(item.unit_price_cents) + " x " + item.quantity);
+  row("Product", "Unit price × quantity", "head");
+  for (const item of cart.items) row(item.title, dollars(item.unit_price_cents) + " × " + item.quantity);
   row("Total (" + cart.currency + ")", dollars(cart.total_cents), "total");
   for (const item of cart.items) {
     if (item.price_was_cents != null) {
       box.appendChild(el("p", "The price of " + item.title + " changed from " + dollars(item.price_was_cents) + " since the search. The total above is the current price.", "note"));
     }
   }
+  const pay = box.appendChild(el("button", "Confirm and pay with PayPal", "primary"));
   box.appendChild(el("p", "Nothing is charged until you approve the payment on PayPal.", "note"));
-  const pay = box.appendChild(el("button", "Confirm and pay with PayPal"));
   pay.onclick = async () => {
     pay.disabled = true;  // F12: one click only; the server also returns the same order on a repeat
     try {
@@ -196,58 +468,80 @@ function showSummary(cart) {
 }
 
 // F13, F14: result after returning from PayPal. Only reads the stored order; never captures.
-function showOrder(order) {
-  const box = add(el("div", undefined, "result" + (order.status === "COMPLETED" ? " ok" : "")));
-  box.appendChild(el("strong", order.message));
-  box.appendChild(el("div", "Order #" + order.order_id));
+const FAILED = ["CANCELLED", "AMOUNT_MISMATCH", "CAPTURE_FAILED"];
+// Readable names for the order statuses; the raw status is still shown under the card.
+const STATUS_LABEL = {CREATED: "Awaiting approval", COMPLETED: "Paid", PARTIALLY_REFUNDED: "Partly refunded", REFUNDED: "Refunded",
+                      CANCELLED: "Cancelled", AMOUNT_MISMATCH: "Not captured", CAPTURE_FAILED: "Payment failed"};
+function showOrder(order, parent = target) {
+  const box = add(el("section", undefined, "result" + (FAILED.includes(order.status) ? " failed" : "")), parent);
+  const head = box.appendChild(el("div", undefined, "head"));
+  head.appendChild(el("h3", "Order #" + order.order_id, "card-title"));
+  const chip = head.appendChild(el("span", STATUS_LABEL[order.status] || order.status, "chip"));
+  chip.dataset.status = order.status;  // the colour comes from CSS
+  box.appendChild(el("p", order.message, "msgline"));
   const refundable = order.status === "COMPLETED" || order.status === "PARTIALLY_REFUNDED";
   const open = order.items.filter(i => !i.refunded);
   // The buttons only send a chat message: the agent drafts the refund, and money moves on Confirm refund.
   const ask = (button, text) => { button.onclick = () => { if (submitText(text)) box.querySelectorAll("button").forEach(x => x.disabled = true); }; };
-  const lines = box.appendChild(el("ol"));
+  const lines = box.appendChild(el("ul", undefined, "lines"));
   for (const i of order.items) {
-    const li = lines.appendChild(el("li", i.quantity + " x " + i.title + (i.refunded ? " (refunded)" : "")));
-    if (refundable && !i.refunded) ask(li.appendChild(el("button", "Refund this item")), `refund item ${i.line} of order ${order.order_id}`);
+    const li = lines.appendChild(el("li", undefined, i.refunded ? "refunded" : ""));
+    li.appendChild(el("span", i.title, "what"));
+    li.appendChild(el("span", dollars(i.unit_price_cents) + " × " + i.quantity, "num"));
+    if (i.refunded) li.appendChild(el("span", undefined, "act")).appendChild(el("span", "Refunded", "tag"));
+    else if (refundable) ask(li.appendChild(el("span", undefined, "act")).appendChild(el("button", "Refund this item", "link")), `refund item ${i.line} of order ${order.order_id}`);
   }
-  box.appendChild(el("div", "Total: " + dollars(order.amount_cents) + " " + order.currency));
-  if (order.refunded_cents) box.appendChild(el("div", "Refunded: " + dollars(order.refunded_cents) + " " + order.currency));
-  if (order.paypal_order_id) box.appendChild(el("div", "PayPal order ID: " + order.paypal_order_id));
-  box.appendChild(el("div", "Status: " + order.status));
+  const totals = box.appendChild(el("div", undefined, "totals"));
+  const total = (label, value, cls) => { const d = totals.appendChild(el("div", undefined, cls)); d.appendChild(el("span", label)); d.appendChild(el("span", value, "num")); };
+  total("Total", dollars(order.amount_cents) + " " + order.currency, "grand");
+  if (order.refunded_cents) total("Refunded", dollars(order.refunded_cents) + " " + order.currency);
+  const meta = box.appendChild(el("div", undefined, "meta"));
+  if (order.paypal_order_id) meta.appendChild(el("span", "PayPal order ID: " + order.paypal_order_id));
+  meta.appendChild(el("span", "Status: " + order.status));
+  const foot = el("div", undefined, "result-foot");
   if (refundable) {
-    if (open.length > 1) ask(box.appendChild(el("button", `Refund all ${open.length} remaining items`)), `refund order ${order.order_id}`);
-    box.appendChild(el("p", "Sandbox simulation: the payment is recorded, but nothing ships. You can check or refund this order here.", "note"));
+    if (open.length > 1) ask(foot.appendChild(el("button", `Refund all ${open.length} remaining items`)), `refund order ${order.order_id}`);
+    foot.appendChild(el("p", "Sandbox simulation: the payment is recorded, but nothing ships. You can check or refund this order here.", "note"));
   }
   if (order.status === "CREATED" && order.paypal_order_id) {
-    const again = box.appendChild(el("a", "Check again"));
+    const again = foot.appendChild(el("a", "Check again"));
     again.href = "/paypal/return?order_id=" + encodeURIComponent(order.order_id);
   }
+  if (foot.children.length) box.appendChild(foot);
 }
 
 // A list of orders takes one line each; Details draws the full card (with its refund buttons).
 function showOrderList(orders) {
-  const box = add(el("div", undefined, "card orders"));
-  box.appendChild(el("strong", "Your orders"));
+  const box = add(el("section", undefined, "orders"));
+  box.appendChild(el("h3", "Your orders", "card-title"));
   const ul = box.appendChild(el("ul"));
   for (const o of orders) {
-    const items = o.items.map(i => i.quantity + " x " + i.title + (i.refunded ? " (refunded)" : "")).join(", ");
-    const li = ul.appendChild(el("li", `#${o.order_id} ${o.status} ${dollars(o.amount_cents)} - ${items}`));
-    li.appendChild(el("button", "Details")).onclick = () => showOrder(o);
+    const li = ul.appendChild(el("li"));
+    const top = li.appendChild(el("div", undefined, "row-top"));
+    top.appendChild(el("span", "#" + o.order_id));
+    const chip = top.appendChild(el("span", STATUS_LABEL[o.status] || o.status, "chip"));
+    chip.dataset.status = o.status;
+    top.appendChild(el("span", dollars(o.amount_cents), "num"));
+    li.appendChild(el("button", "Details", "link")).onclick = () => showOrder(o);
+    li.appendChild(el("span", o.items.map(i => i.quantity + " × " + i.title + (i.refunded ? " (refunded)" : "")).join(", "), "items"));
   }
 }
 
 // F16, F23: refund draft, one row per line. PayPal is called only when the user clicks Confirm refund.
 function showRefundDraft(draft) {
-  const box = add(el("div", undefined, "summary"));
-  box.appendChild(el("strong", "Refund for order #" + draft.order_id));
+  const box = add(el("section", undefined, "summary"));
+  box.appendChild(el("h3", "Refund for order #" + draft.order_id, "card-title"));
   const table = box.appendChild(el("table"));
   for (const l of draft.lines) {
     const tr = table.appendChild(el("tr"));
-    tr.appendChild(el("td", "Line " + l.line + ": " + l.quantity + " x " + l.title));
+    tr.appendChild(el("td", "Line " + l.line + ": " + l.quantity + " × " + l.title));
     tr.appendChild(el("td", dollars(l.amount_cents)));
   }
-  box.appendChild(el("div", "Amount: " + dollars(draft.amount_cents) + " " + draft.currency, "price"));
+  const amount = box.appendChild(el("div", undefined, "amount price"));
+  amount.appendChild(el("span", "Amount"));
+  amount.appendChild(el("span", dollars(draft.amount_cents) + " " + draft.currency));
+  const button = box.appendChild(el("button", "Confirm refund", "primary"));
   box.appendChild(el("p", "Nothing is refunded until you click Confirm refund.", "note"));
-  const button = box.appendChild(el("button", "Confirm refund"));
   button.onclick = async () => {
     button.disabled = true;  // one click only; the server also refuses a line that was already refunded
     const body = {lines: draft.lines.map(l => l.line)};  // exactly the lines this draft showed
@@ -258,22 +552,25 @@ function showRefundDraft(draft) {
 
 // While the agent works, show the step it is on. The text comes from the server (GET /api/progress), not from a timer.
 async function withProgress(request) {
-  const waiting = add(el("div", "Working...", "msg bot waiting"));
+  const waiting = add(el("div", undefined, "waiting"));
+  waiting.appendChild(el("span", undefined, "spinner"));
+  const step = waiting.appendChild(el("span", "Working..."));
   const timer = setInterval(async () => {
-    try { const p = await api("/api/progress"); if (p.step) waiting.textContent = p.step + "..."; }
+    try { const p = await api("/api/progress"); if (p.step) step.textContent = p.step + "..."; }
     catch (err) { /* keep showing the last step */ }
   }, 1000);
   try { return await request; } finally { clearInterval(timer); waiting.remove(); }
 }
 
 async function send(text) {
-  add(el("div", text, "msg user"));
+  log.appendChild(el("div", text, "user")).scrollIntoView({block: "end"});
+  agentTurn();
   const data = await withProgress(api("/api/chat", {message: text}));
-  add(el("div", data.reply, "msg bot"));
+  add(el("p", data.reply, "reply"));
   if (data.recommendations) showRecommendations(data);
   if (data.bundle) showBundle(data.bundle);
   if (data.cart) showSummary(data.cart);
-  if (data.orders) data.orders.length > 1 ? showOrderList(data.orders) : data.orders.forEach(showOrder);
+  if (data.orders) data.orders.length > 1 ? showOrderList(data.orders) : data.orders.forEach(o => showOrder(o));
   if (data.refund_draft) showRefundDraft(data.refund_draft);
   if (data.memory_changed) loadMemory();
 }
@@ -286,7 +583,8 @@ function submitText(text) {
   busy = true;
   const input = document.getElementById("input"), button = document.getElementById("send");
   button.disabled = true;
-  examples.hidden = true;
+  welcome.hidden = true;
+  showView("chat");  // a refund button on the Orders view sends its request to the chat
   send(text).catch(showError).finally(() => { busy = false; button.disabled = false; input.focus(); });
   return true;
 }
@@ -297,22 +595,66 @@ document.getElementById("form").addEventListener("submit", e => {
   if (submitText(input.value.trim())) input.value = "";  // Enter during a running request keeps the text
 });
 
-// Examples of what can be asked, shown while the conversation is empty.
+// Examples of what can be asked, shown while the conversation is empty: one per thing the agent does well.
+// Each also works with the keyless rule-based mock, which needs a budget and "a ..., a ... and a ..." for a set.
+const welcome = document.getElementById("welcome");
 const examples = document.getElementById("examples");
-for (const text of ["a tent, a sleeping bag and a lantern under $300", "I always buy Sony", "my orders"]) {
-  examples.appendChild(el("button", text)).onclick = () => submitText(text);
+const EXAMPLES = [
+  ["A birthday gift for my sister who loves reading, under $150", "3 picks, each with a reason"],
+  ["A smart mug, a notebook and a candle under $200", "One set, one budget"],
+  ["Remember that I prefer balsam and cedar scents", "Saved as a preference"],
+];
+for (const [text, hint] of EXAMPLES) {
+  const b = examples.appendChild(el("button"));
+  b.type = "button";
+  b.appendChild(el("span", text, "ask"));
+  b.appendChild(el("span", hint, "hint"));
+  b.appendChild(icon("i-arrow"));
+  b.onclick = () => submitText(text);
 }
-for (const example of examples.children) example.type = "button";
+
+// Sidebar views: Chat, Orders, What I remember. Only one is shown; the others keep their content.
+function showView(name) {
+  for (const b of document.querySelectorAll(".nav button")) {
+    if (b.dataset.view === name) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  }
+  for (const v of ["chat", "orders", "memory"]) document.getElementById("view-" + v).hidden = v !== name;
+  if (name === "orders") loadOrders();
+  if (name === "memory") loadMemory();
+}
+for (const b of document.querySelectorAll(".nav button")) b.onclick = () => showView(b.dataset.view);
+
+function emptyState(parent, iconId, text) {
+  const box = parent.appendChild(el("div", undefined, "empty-state"));
+  box.appendChild(icon(iconId));
+  box.appendChild(el("span", text));
+}
+
+// Orders view: this user's latest orders, each drawn as the same card the chat shows.
+async function loadOrders() {
+  const list = document.getElementById("order-list");
+  try {
+    const orders = await api("/api/orders");
+    list.textContent = "";
+    if (!orders.length) emptyState(list, "i-bag", "No orders yet. Choose a product in the chat to place one.");
+    for (const o of orders) showOrder(o, list);
+  } catch (err) { list.textContent = ""; showError(err, list); }
+}
 
 // F20: view and delete saved preferences.
 async function loadMemory() {
   const list = document.getElementById("memory-list");
   const prefs = await api("/api/memory");
+  document.getElementById("memory-count").textContent = prefs.length || "";
   list.textContent = "";
-  if (!prefs.length) list.appendChild(el("li", "Nothing yet. Tell me a lasting preference, e.g. \"I always buy Sony\"."));
+  if (!prefs.length) emptyState(list, "i-mark", "Nothing yet. Tell me a lasting preference, e.g. \"I always buy Sony\".");
   for (const p of prefs) {
-    const li = list.appendChild(el("li", `${p.text} (strength ${p.strength.toFixed(1)})`));
-    const del = li.appendChild(el("button", "Delete"));
+    const li = list.appendChild(el("li"));
+    li.appendChild(el("span", undefined, "pref-icon")).appendChild(icon("i-mark"));
+    const text = li.appendChild(el("span", p.text));
+    text.appendChild(el("span", "Strength " + p.strength.toFixed(1), "strength"));
+    const del = li.appendChild(el("button", "Delete", "link danger"));
+    del.setAttribute("aria-label", "Delete " + p.text);
     del.onclick = async () => {
       del.disabled = true;
       try { await api("/api/memory/" + p.id, null, "DELETE"); } catch (err) { showError(err); }
@@ -323,16 +665,20 @@ async function loadMemory() {
 
 document.getElementById("new-chat").onclick = async () => {
   await api("/api/conversation/new", {});
+  showView("chat");
   log.textContent = "";
-  examples.hidden = false;
-  add(el("div", "New conversation started. Saved preferences will be used for recommendations.", "msg bot"));
+  welcome.hidden = false;
+  agentTurn();
+  add(el("p", "New conversation started. Saved preferences will be used for recommendations.", "reply"));
 };
 
 loadMemory();
 
 const returnedOrder = new URLSearchParams(location.search).get("order_id");
 if (returnedOrder) {
-  api("/api/orders/" + encodeURIComponent(returnedOrder)).then(showOrder)
+  welcome.hidden = true;
+  agentTurn();
+  api("/api/orders/" + encodeURIComponent(returnedOrder)).then(o => showOrder(o))
     .catch(showError);
 }
 
