@@ -112,10 +112,14 @@ components:
     backgroundColor: "{colors.white}"
     rounded: "{rounded.md}"
     padding: "6px"
-  product-stage:
-    backgroundColor: "{colors.sand}"
+  product-row:
+    backgroundColor: "{colors.white}"
     rounded: "{rounded.md}"
-    padding: "20px"
+    padding: "12px 16px 12px 12px"
+  product-box:
+    backgroundColor: "{colors.sand}"
+    rounded: "{rounded.sm}"
+    size: "84px"
   rank-top-pick:
     backgroundColor: "{colors.espresso}"
     textColor: "{colors.white}"
@@ -164,7 +168,7 @@ A warm neutral palette (white, sand, black) with one espresso accent and three s
 ### Primary
 - **Espresso** (`espresso`): the highlight colour. Used on the brand mark, the "Top pick" rank, the ring and button of the chosen product, the current view's icon, the focus ring, the input caret and the progress spinner.
 - **Espresso Ink** (`espresso-ink`): espresso darkened for text. The agent's name above each reply, the "Ruled out" toggle, the hover colour of example requests, and the icon on memory entries.
-- **Espresso Tint** (`espresso-tint`): the shopper's own messages, the chosen option in a set, memory entry icon tiles, text selection.
+- **Espresso Tint** (`espresso-tint`): the shopper's own messages, memory entry icon tiles, text selection.
 
 ### Neutral
 - **White** (`white`): the main area, cards and default buttons.
@@ -198,7 +202,7 @@ A warm neutral palette (white, sand, black) with one espresso accent and three s
 - **Total** (600, 22 px, tabular figures): the order total. The order card's grand total is 20 px.
 - **Reply** (400, 16 px, 1.6): the agent's replies and example requests.
 - **Body** (400, 15 px, 1.6): default text. Notes and reasons drop to 13 px in `muted`.
-- **Product title** (500, 14.5 px, 1.4, at most two lines): product names in the grid and set options.
+- **Product title** (500, 14.5 px, 1.35): product names in product rows.
 - **Card title** (600, 12.5 px, 0.14em, uppercase): "Order summary", "Order #...", "Refund for order #...", "Your orders".
 - **Label** (600, 11 px, 0.1em, uppercase): rank tags, retailer brand names, table column heads, the "Shopping Agent" descriptor. The "Ruled out" toggle is 12 px; the agent's name is 11 px at 0.18em.
 - **Wordmark** (600, 18 px, 0.26em, uppercase): "PICKWISE" in the sidebar.
@@ -212,20 +216,20 @@ A warm neutral palette (white, sand, black) with one espresso accent and three s
 
 Desktop is a two-column grid: a 248 px sand sidebar (sticky, full height) and the main area. The main area holds the notice strip on top, then one centred column at most 780 px wide with 32 px side padding. The input is docked at the bottom of the conversation and fades the content above it into white.
 
-Recommendations are a three-column grid with 18 px gaps; each product is a square picture stage with text beneath. Conversation turns are spaced 26 px apart. Money cards use 26 px padding. Lists (examples, ruled out, order lines, memory) are rows between hairlines, not boxes.
+Products are a stack of product rows with 8 px gaps, used for the three picks and for every item of a set: an 84 px sand box, the text, then price and action in a right-hand column so prices line up. Conversation turns are spaced 26 px apart. Money cards use 26 px padding. Lists (examples, ruled out, order lines, memory) are rows between hairlines, not boxes.
 
-Below 860 px the sidebar becomes a top bar: the brand and New conversation on one row, the three views as equal tabs with the icon above the label. The column padding drops to 16 px, products go to two columns with the top pick spanning both at a 2:1 stage, and product buttons stack full width. The page works at 375 px.
+Below 860 px the sidebar becomes a top bar: the brand and New conversation on one row, the three views as equal tabs with the icon above the label. The column padding drops to 16 px; a product row shrinks its box to 64 px and moves price and action under the text. The top bar keeps its own height (grid rows `auto 1fr`). The page works at 375 px.
 
 ## Elevation & Depth
 
-The system is flat. There are no drop shadows. Depth comes from tone (white on sand, sand on deep sand) and 1 px hairlines. The only box-shadow is an inset ring on the product stage: a 1 px hairline ring on hover and a 2 px espresso ring when the product is chosen.
+The system is flat. There are no drop shadows. Depth comes from tone (white on sand, sand on deep sand) and 1 px hairlines. The only box-shadow is an inset 1 px espresso ring that, with the espresso border, marks the chosen product row or the selected option of a set.
 
 ### Named Rules
 **The Hairline Rule.** Separate things with a 1 px `hairline` line or a change of tone, never with a shadow.
 
 ## Shapes
 
-Corners are near-square: 4 px for buttons, inputs and nav items, 6 px for cards, product stages, the shopper's message, badges and the input box, 2 px for rank tags. Only the status dot and spinner are round. Icons are thin line drawings (18 px, 1.5 px stroke, round caps) from an inline SVG sprite. The mark is three stacked cards with the front one checked, in espresso, always next to the PICKWISE wordmark.
+Corners are near-square: 4 px for buttons, inputs and nav items, 6 px for cards, product rows, the shopper's message, badges and the input box, 2 px for rank tags. Only the status dot and spinner are round. Icons are thin line drawings (18 px, 1.5 px stroke, round caps) from an inline SVG sprite. The mark is three stacked cards with the front one checked, in espresso, always next to the PICKWISE wordmark.
 
 ## Components
 
@@ -248,8 +252,8 @@ Corners are near-square: 4 px for buttons, inputs and nav items, 6 px for cards,
 - **Money cards** (order summary, order result, order list, refund draft): white, 1 px hairline border, 6 px corners, 26 px padding, no shadow. A failed order's border is `error-line`.
 - **Empty state:** sand block, 6 px corners, centred muted text and a 24 px line icon.
 
-### Product tile (signature)
-A square sand stage holding the picture (blended with multiply so white backgrounds vanish) or, without a picture, the brand name in small uppercase. A rank tag sits top left: white for "Pick 2" and "Pick 3", espresso for "Top pick". Below: retailer brand label, product title, the reason in muted 13 px, then the price and a Choose button. The chosen tile gets an espresso ring and an espresso button.
+### Product row (signature)
+One row design for the three picks and for every item of a set (`productRow` in the page script). Left: an 84 px sand box with the brand name in small uppercase, covered by the catalog picture when it loads (blended with multiply). Middle: brand label and a tag ("Top pick" or "Best fit" in espresso, "Pick 2" and "Pick 3" on sand), the title, the reason in muted 13 px. Right: the price, then the action: a Choose button for a pick, a radio button with "Selected" / "Select" for a set option (the whole row is its label). The chosen pick and the selected option get an espresso border and ring; the chosen pick's button turns espresso.
 
 ### Ruled out list
 A small uppercase espresso toggle with a chevron that turns 90 degrees when open. Inside, hairline rows with title, price and the reason for each rejected product.

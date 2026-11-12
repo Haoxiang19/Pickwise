@@ -95,24 +95,34 @@
   .error { display: flex; gap: 10px; align-items: flex-start; border: 1px solid #e7b3af; background: #fdf6f5; color: var(--red); padding: 12px 14px; border-radius: var(--r); margin: 8px 0; }
   .note { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
 
-  /* Recommendations: product tiles on a sand backdrop, text beneath, the top pick marked in espresso. */
-  .recs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 20px 0 8px; }
-  .rec { display: flex; flex-direction: column; }
-  .stage { position: relative; aspect-ratio: 1; background: var(--stone); border-radius: var(--r-lg); display: grid; place-items: center; padding: 20px; box-shadow: inset 0 0 0 1px transparent; transition: box-shadow .15s ease; }
-  .rec:hover .stage { box-shadow: inset 0 0 0 1px var(--line); }
-  .rec.chosen .stage { box-shadow: inset 0 0 0 2px var(--accent); }
-  .stage .thumb { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
-  .stage .initial { font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); text-align: center; }
-  .rank { position: absolute; top: 10px; left: 10px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 2px; background: var(--bg); color: var(--ink); letter-spacing: var(--track); text-transform: uppercase; }
-  .rec:first-child .rank { background: var(--accent); color: #fff; }
-  .rec .info { display: flex; flex-direction: column; gap: 3px; padding: 12px 2px 0; flex: 1; }
-  .rec .brandname { order: -1; font-size: 11px; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; color: var(--muted); }
-  .rec .title { margin: 0; font-size: 14.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .rec .why { color: var(--muted); font-size: 13px; line-height: 1.5; flex: 1; margin: 4px 0 0; }
-  .rec .buy { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
+  /* Product rows: one design for the three picks and for every item of a set. A sand box on the left
+     (the brand, covered by the catalog picture when it loads), the text in the middle, price and action on the right. */
+  .prows { display: grid; gap: 8px; margin: 16px 0 8px; }
+  .prow { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 4px 18px; align-items: center; padding: 12px 16px 12px 12px;
+          border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); transition: border-color .15s ease, box-shadow .15s ease; }
+  .prow:hover { border-color: var(--control); }
+  .prow.chosen, .prow:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .pbox { position: relative; width: 84px; height: 84px; background: var(--stone); border-radius: var(--r); display: grid; place-items: center; padding: 4px; overflow: hidden;
+          font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); text-align: center; }
+  .pbox .thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 6px; background: var(--stone); mix-blend-mode: multiply; }
+  .ptext { min-width: 0; display: grid; gap: 2px; }
+  .ptop { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+  .ptop .bn { font-size: 11px; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; color: var(--muted); }
+  .ptag { font-size: 11px; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; padding: 1px 7px; border-radius: 2px; background: var(--accent); color: #fff; }
+  .ptag.alt { background: var(--stone); color: var(--muted); }
+  .ptitle { font-size: 14.5px; font-weight: 500; line-height: 1.35; }
+  .pwhy { font-size: 13px; color: var(--muted); }
+  .pact { display: grid; justify-items: end; gap: 8px; }
   .price { font-weight: 600; font-size: 16px; }
-  .rec .buy button { padding: 7px 14px; }
-  .rec.chosen .buy button { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pact .price { font-size: 17px; }
+  .pact button { padding: 7px 16px; }
+  .prow.chosen .pact button { background: var(--accent); border-color: var(--accent); color: #fff; }
+  label.prow { cursor: pointer; }
+  .pick { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .pick input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .pick .on, .prow:has(input:checked) .pick .off { display: none; }
+  .prow:has(input:checked) .pick { color: var(--accent-ink); font-weight: 600; }
+  .prow:has(input:checked) .pick .on { display: inline; }
 
   /* Ruled out: a hairline list, price and reason for each. */
   details.out { margin: 14px 0 4px; font-size: 14px; }
@@ -124,16 +134,9 @@
   details.out li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
   details.out .why { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
 
-  /* A set: one group per item, the chosen option on an espresso tint. */
-  fieldset.group { border: 0; border-top: 1px solid var(--line); margin: 16px 0; padding: 12px 0 0; }
-  fieldset.group legend { float: left; width: 100%; padding: 0 0 8px; font-weight: 600; }
-  .option { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 2px 14px; padding: 11px 12px; margin: 0 -12px; border-radius: var(--r); cursor: pointer; transition: background-color .15s ease; }
-  .option:has(input:checked) { background: var(--accent-tint); }
-  .option input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
-  .option .thumb { grid-column: 2; width: 44px; height: 44px; object-fit: contain; background: var(--stone); border-radius: var(--r); mix-blend-mode: multiply; }
-  .option .name { grid-column: 3; font-size: 14.5px; }  /* fixed columns: a picture that fails to load is removed */
-  .option .price { grid-column: 4; font-size: 15px; }
-  .option .reason { grid-column: 3 / -1; font-size: 13px; color: var(--muted); }
+  /* A set: one group of product rows per item, the chosen option marked like a chosen pick. */
+  fieldset.group { border: 0; margin: 18px 0 0; padding: 0; min-width: 0; }
+  fieldset.group legend { padding: 0; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
   .set-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 16px 0 4px; }
   .set-total { margin: 0; font-size: 16px; }
 
@@ -200,7 +203,7 @@
 
   /* Phone: the sidebar becomes a top bar with the views as three tabs. */
   @media (max-width: 860px) {
-    .app { grid-template-columns: 1fr; }
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
     .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 14px 8px; border-right: 0; border-bottom: 1px solid var(--line); }
     .brand { flex: 1; padding: 0 4px; }
     .brand h1 { font-size: 17px; }
@@ -211,10 +214,9 @@
     .column { padding: 0 16px; }
     #welcome { padding: 40px 0 16px; }
     #welcome h2 { font-size: 30px; }
-    .recs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .rec .buy { flex-direction: column; align-items: stretch; }
-    .rec:first-child { grid-column: 1 / -1; }
-    .rec:first-child .stage { aspect-ratio: 2 / 1; }
+    .prow { grid-template-columns: 64px minmax(0, 1fr); gap: 4px 12px; padding: 10px; }
+    .pbox { width: 64px; height: 64px; grid-row: span 2; }
+    .pact { grid-column: 2; display: flex; justify-content: space-between; align-items: center; }
     .user { max-width: 90%; }
     .summary, .result, .orders { padding: 20px 18px; }
     .page { padding-top: 30px; padding-bottom: 32px; }
@@ -347,30 +349,37 @@ async function api(path, body, method) {
   return data;
 }
 
+// One product row, used by the three picks and by every item of a set. Returns the row and its right-hand
+// column, where the caller puts the action (a Choose button or a radio button).
+function productRow(p, tag, strongTag, rowTag = "div") {
+  const row = el(rowTag, undefined, "prow");
+  const box = row.appendChild(el("div", undefined, "pbox"));
+  box.appendChild(el("span", p.brand || p.title));
+  const picture = thumb(p.image);  // covers the brand when it loads; removes itself when it fails
+  if (picture) box.appendChild(picture);
+  const text = row.appendChild(el("div", undefined, "ptext"));
+  const top = text.appendChild(el("div", undefined, "ptop"));
+  if (p.brand) top.appendChild(el("span", p.brand, "bn"));
+  if (tag) top.appendChild(el("span", tag, strongTag ? "ptag" : "ptag alt"));
+  text.appendChild(el("div", p.title, "ptitle"));
+  text.appendChild(el("div", p.reason, "pwhy"));
+  const act = row.appendChild(el("div", undefined, "pact"));
+  act.appendChild(el("span", dollars(p.price_cents), "price"));
+  return {row, act};
+}
+
 function showRecommendations(data) {
   const box = add(el("div"));
-  const grid = box.appendChild(el("div", undefined, "recs"));
+  const list = box.appendChild(el("div", undefined, "prows"));
   (data.recommendations || []).forEach((r, i) => {
-    const card = grid.appendChild(el("article", undefined, "rec"));
-    // The stage shows the brand until (and unless) the catalog picture loads over it.
-    const stage = card.appendChild(el("div", undefined, "stage"));
-    const picture = thumb(r.image);
-    if (picture) stage.appendChild(picture);
-    else stage.appendChild(el("span", r.brand || r.title, "initial"));
-    if (picture) picture.addEventListener("error", () => stage.appendChild(el("span", r.brand || r.title, "initial")));
-    stage.appendChild(el("span", i === 0 ? "Top pick" : "Pick " + (i + 1), "rank"));
-    const info = card.appendChild(el("div", undefined, "info"));
-    info.appendChild(el("h4", r.title, "title"));
-    if (r.brand) info.appendChild(el("div", r.brand, "brandname"));
-    info.appendChild(el("p", r.reason, "why"));
-    const buy = info.appendChild(el("div", undefined, "buy"));
-    buy.appendChild(el("span", dollars(r.price_cents), "price"));
-    const choose = buy.appendChild(el("button", "Choose"));
+    const {row, act} = productRow(r, i === 0 ? "Top pick" : "Pick " + (i + 1), i === 0);
+    list.appendChild(row);
+    const choose = act.appendChild(el("button", "Choose"));
     choose.setAttribute("aria-label", "Choose " + r.title);
     choose.onclick = async () => {
-      for (const c of grid.children) {
-        c.classList.toggle("chosen", c === card);
-        c.querySelector(".buy button").textContent = c === card ? "Chosen" : "Choose";
+      for (const c of list.children) {
+        c.classList.toggle("chosen", c === row);
+        c.querySelector(".pact button").textContent = c === row ? "Chosen" : "Choose";
       }
       try { record({kind: "summary", cart: await api("/api/cart", {product_id: r.id, quantity: 1})}); }
       catch (err) { showError(err); }
@@ -409,16 +418,18 @@ function showBundle(set) {
   set.items.forEach((item, i) => {
     const group = box.appendChild(el("fieldset", undefined, "group"));
     group.appendChild(el("legend", item.quantity + " × " + item.name));
+    const list = group.appendChild(el("div", undefined, "prows"));
     for (const p of [item.chosen, ...item.alternatives]) {
-      const label = group.appendChild(el("label", undefined, "option"));
-      const radio = label.appendChild(el("input"));
+      // The row is a <label>, so a click anywhere on it selects the option; its border follows the radio (CSS :has).
+      const {row, act} = productRow(p, p === item.chosen ? "Best fit" : "", true, "label");
+      list.appendChild(row);
+      const pick = act.appendChild(el("span", undefined, "pick"));
+      const radio = pick.appendChild(el("input"));
       radio.type = "radio"; radio.name = `set${setCount}-item${i}`; radio.value = p.id; radio.checked = p === item.chosen;
+      radio.setAttribute("aria-label", p.title + ", " + dollars(p.price_cents));
       radio.onchange = () => { total.textContent = "The total is recalculated when you review the set."; };
-      const picture = thumb(p.image);
-      if (picture) label.appendChild(picture);
-      label.appendChild(el("span", p.title + (p.brand ? " - " + p.brand : ""), "name"));
-      label.appendChild(el("span", dollars(p.price_cents), "price"));
-      label.appendChild(el("div", p.reason, "reason"));
+      pick.appendChild(el("span", "Selected", "on"));
+      pick.appendChild(el("span", "Select", "off"));
     }
     groups.push({group, quantity: item.quantity});
   });
@@ -457,14 +468,32 @@ function showSummary(cart) {
   }
   const pay = box.appendChild(el("button", "Confirm and pay with PayPal", "primary"));
   box.appendChild(el("p", "Nothing is charged until you approve the payment on PayPal.", "note"));
+  if (cart.orderId) box.dataset.orderId = cart.orderId;
   pay.onclick = async () => {
     pay.disabled = true;  // F12: one click only; the server also returns the same order on a repeat
     try {
       const order = await api("/api/confirm", {cart_id: cart.cart_id});
+      cart.orderId = order.order_id;  // `cart` is the saved entry's own object, so this is kept for the return
+      saveChat();
       window.location.href = order.approve_url;
     } catch (err) { showError(err); }
   };
   return box;
+}
+
+// Removes a box from the chat, and its agent turn if nothing is left in it (never the turn being written to).
+function removeBox(box) {
+  const body = box.parentElement;
+  box.remove();
+  if (body !== target && body.classList.contains("body") && !body.children.length) body.parentElement.remove();
+}
+
+// After PayPal, the order card takes the place of the summary that started it: the card has the same lines and
+// total plus the status, so the summary and its pay button are removed. An order still waiting for approval
+// keeps its summary: a second Confirm returns the same PayPal link.
+function settleSummary(order) {
+  if (order.status === "CREATED") return;
+  for (const box of log.querySelectorAll(`.summary[data-order-id="${order.order_id}"]`)) removeBox(box);
 }
 
 // F13, F14: result after returning from PayPal. Only reads the stored order; never captures.
@@ -473,7 +502,10 @@ const FAILED = ["CANCELLED", "AMOUNT_MISMATCH", "CAPTURE_FAILED"];
 const STATUS_LABEL = {CREATED: "Awaiting approval", COMPLETED: "Paid", PARTIALLY_REFUNDED: "Partly refunded", REFUNDED: "Refunded",
                       CANCELLED: "Cancelled", AMOUNT_MISMATCH: "Not captured", CAPTURE_FAILED: "Payment failed"};
 function showOrder(order, parent = target) {
+  // In the chat one order is one box: the newest card replaces older cards of the same order.
+  if (log.contains(parent)) for (const old of log.querySelectorAll(`.result[data-order-id="${order.order_id}"]`)) removeBox(old);
   const box = add(el("section", undefined, "result" + (FAILED.includes(order.status) ? " failed" : "")), parent);
+  box.dataset.orderId = order.order_id;
   const head = box.appendChild(el("div", undefined, "head"));
   head.appendChild(el("h3", "Order #" + order.order_id, "card-title"));
   const chip = head.appendChild(el("span", STATUS_LABEL[order.status] || order.status, "chip"));
@@ -503,11 +535,23 @@ function showOrder(order, parent = target) {
     if (open.length > 1) ask(foot.appendChild(el("button", `Refund all ${open.length} remaining items`)), `refund order ${order.order_id}`);
     foot.appendChild(el("p", "Sandbox simulation: the payment is recorded, but nothing ships. You can check or refund this order here.", "note"));
   }
+  if (FAILED.includes(order.status)) {
+    // The server never re-opens a finished order, so paying again means a new cart for the same products.
+    const again = foot.appendChild(el("button", "Pay again"));
+    again.onclick = async () => {
+      again.disabled = true;
+      showView("chat");
+      const items = order.items.map(i => ({product_id: i.product_id, quantity: i.quantity}));
+      try { record({kind: "summary", cart: await api("/api/cart", {items})}); }
+      catch (err) { again.disabled = false; showError(err); }
+    };
+  }
   if (order.status === "CREATED" && order.paypal_order_id) {
     const again = foot.appendChild(el("a", "Check again"));
     again.href = "/paypal/return?order_id=" + encodeURIComponent(order.order_id);
   }
   if (foot.children.length) box.appendChild(foot);
+  if (parent !== document.getElementById("order-list")) settleSummary(order);
 }
 
 // A list of orders takes one line each; Details draws the full card (with its refund buttons).
@@ -529,6 +573,7 @@ function showOrderList(orders) {
 
 // F16, F23: refund draft, one row per line. PayPal is called only when the user clicks Confirm refund.
 function showRefundDraft(draft) {
+  if (draft.done) return;  // already refunded: the order card that followed shows the result
   const box = add(el("section", undefined, "summary"));
   box.appendChild(el("h3", "Refund for order #" + draft.order_id, "card-title"));
   const table = box.appendChild(el("table"));
@@ -545,8 +590,13 @@ function showRefundDraft(draft) {
   button.onclick = async () => {
     button.disabled = true;  // one click only; the server also refuses a line that was already refunded
     const body = {lines: draft.lines.map(l => l.line)};  // exactly the lines this draft showed
-    try { record({kind: "order", order: await api("/api/orders/" + encodeURIComponent(draft.order_id) + "/refund", body)}); }
-    catch (err) { showError(err); }
+    try {
+      const order = await api("/api/orders/" + encodeURIComponent(draft.order_id) + "/refund", body);
+      draft.done = true;  // `draft` is the saved entry's own object, so a reload does not draw it again
+      saveChat();
+      removeBox(box);
+      record({kind: "order", order});
+    } catch (err) { showError(err); }
   };
 }
 
@@ -567,9 +617,12 @@ async function withProgress(request) {
 // New conversation clears it. Saving is best effort: without storage the page still works, it just forgets.
 const SAVED_CHAT = "pickwise-chat";
 let saved = [];
+function saveChat() {
+  try { localStorage.setItem(SAVED_CHAT, JSON.stringify(saved)); } catch (err) { /* storage off or full */ }
+}
 function record(entry) {
   saved.push(entry);
-  try { localStorage.setItem(SAVED_CHAT, JSON.stringify(saved)); } catch (err) { /* storage off or full */ }
+  saveChat();
   draw(entry);
 }
 function draw(entry) {

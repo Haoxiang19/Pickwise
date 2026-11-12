@@ -330,21 +330,16 @@
     },
     "shadows": [
       {
-        "name": "stage-hover-ring",
-        "value": "inset 0 0 0 1px #e8e2da",
-        "purpose": "Hairline ring on a product stage on hover."
-      },
-      {
-        "name": "stage-chosen-ring",
-        "value": "inset 0 0 0 2px #7a5a43",
-        "purpose": "Espresso ring on the chosen product's stage."
+        "name": "row-chosen-ring",
+        "value": "inset 0 0 0 1px #7a5a43",
+        "purpose": "With the espresso border, marks the chosen product row or the selected set option."
       }
     ],
     "motion": [
       {
         "name": "state-transition",
         "value": "150ms ease",
-        "purpose": "Colour, border, background, stage ring and chevron turn. Removed under prefers-reduced-motion."
+        "purpose": "Colour, border, background, row ring and chevron turn. Removed under prefers-reduced-motion."
       },
       {
         "name": "spinner",
@@ -406,12 +401,12 @@
       "css": ".ds-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-side { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; width: 248px; background: #f5f2ee; border-right: 1px solid #e8e2da; padding: 28px 14px; display: grid; gap: 2px; } .ds-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 22px; } .ds-wm { font-size: 18px; font-weight: 600; letter-spacing: .26em; text-transform: uppercase; line-height: 1.2; color: #141414; } .ds-wm small { display: block; margin-top: 4px; font-size: 11px; font-weight: 400; letter-spacing: .1em; color: #625a52; } .ds-nav { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: none; border-radius: 4px; padding: 10px 12px; text-align: left; font-size: 14.5px; color: #141414; cursor: pointer; transition: background-color .15s ease; } .ds-nav .ds-icon { color: #625a52; transition: color .15s ease; } .ds-nav:hover { background: #ebe5dd; } .ds-nav[aria-current=page] { background: #ebe5dd; font-weight: 600; } .ds-nav[aria-current=page] .ds-icon { color: #7a5a43; } .ds-nav:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; }"
     },
     {
-      "name": "Product Tile",
+      "name": "Product Row",
       "kind": "card",
-      "refersTo": "product-stage",
-      "description": "Square sand stage with a rank tag, then brand, title, reason, price and Choose.",
-      "html": "<article class=\"ds-rec\"><div class=\"ds-stage\"><span class=\"ds-initial\">Brand</span><span class=\"ds-rank ds-top\">Top pick</span></div><div class=\"ds-info\"><div class=\"ds-title\">Lightweight road running shoe</div><div class=\"ds-brandname\">Brand</div><p class=\"ds-why\">Fits the budget and suits daily road runs.</p><div class=\"ds-buy\"><span class=\"ds-price\">$89.00</span><button class=\"ds-choose\">Choose</button></div></div></article>",
-      "css": ".ds-rec { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; width: 220px; display: flex; flex-direction: column; color: #141414; } .ds-stage { position: relative; aspect-ratio: 1; background: #f5f2ee; border-radius: 6px; display: grid; place-items: center; padding: 20px; box-shadow: inset 0 0 0 1px transparent; transition: box-shadow .15s ease; } .ds-rec:hover .ds-stage { box-shadow: inset 0 0 0 1px #e8e2da; } .ds-initial { font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: #625a52; } .ds-rank { position: absolute; top: 10px; left: 10px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 2px; background: #fff; letter-spacing: .1em; text-transform: uppercase; } .ds-top { background: #7a5a43; color: #fff; } .ds-info { display: flex; flex-direction: column; gap: 3px; padding: 12px 2px 0; } .ds-brandname { order: -1; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #625a52; } .ds-title { font-size: 14.5px; font-weight: 500; line-height: 1.4; } .ds-why { color: #625a52; font-size: 13px; line-height: 1.5; margin: 4px 0 0; } .ds-buy { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; } .ds-price { font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; } .ds-choose { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; background: #fff; border: 1px solid #d3cbc1; border-radius: 4px; padding: 7px 14px; font-size: 14px; font-weight: 500; cursor: pointer; transition: border-color .15s ease; } .ds-choose:hover { border-color: #141414; } .ds-choose:focus-visible { outline: 2px solid #7a5a43; outline-offset: 2px; }"
+      "refersTo": "product-row",
+      "description": "84 px sand box (brand, or the picture), brand and tag, title, reason, then price and action on the right; used for picks and set options.",
+      "html": "<div class=\"ds-prow\"><div class=\"ds-pbox\">Brand</div><div class=\"ds-ptext\"><div><span class=\"ds-bn\">Brand</span> <span class=\"ds-ptag\">Top pick</span></div><div class=\"ds-ptitle\">Lightweight road running shoe</div><div class=\"ds-pwhy\">Fits the budget and suits daily road runs.</div></div><div class=\"ds-pact\"><span class=\"ds-price\">$89.00</span><button class=\"ds-choose\">Choose</button></div></div>",
+      "css": ".ds-prow { font-family: \"Helvetica Neue\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, Roboto, Arial, sans-serif; display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 4px 18px; align-items: center; padding: 12px 16px 12px 12px; border: 1px solid #e8e2da; border-radius: 6px; background: #fff; color: #141414; max-width: 640px; } .ds-pbox { width: 84px; height: 84px; background: #f5f2ee; border-radius: 4px; display: grid; place-items: center; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #625a52; } .ds-ptext { display: grid; gap: 2px; } .ds-bn { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #625a52; } .ds-ptag { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 1px 7px; border-radius: 2px; background: #7a5a43; color: #fff; } .ds-ptitle { font-size: 14.5px; font-weight: 500; } .ds-pwhy { font-size: 13px; color: #625a52; } .ds-pact { display: grid; justify-items: end; gap: 8px; } .ds-price { font-weight: 600; font-size: 17px; font-variant-numeric: tabular-nums; } .ds-choose { font: inherit; font-size: 14px; background: #fff; border: 1px solid #d3cbc1; border-radius: 4px; padding: 7px 16px; cursor: pointer; }"
     },
     {
       "name": "Ruled Out List",
