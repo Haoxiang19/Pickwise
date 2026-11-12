@@ -183,3 +183,12 @@ def test_progress_endpoint_is_empty_when_idle_and_per_user(client):
     store.get_session(client.cookies["uid"]).progress = "Searching the catalog: tents"
     assert client.get("/api/progress").json() == {"step": "Searching the catalog: tents"}
     assert TestClient(main.app).get("/api/progress").json() == {"step": ""}  # another browser sees nothing
+
+
+def test_page_offers_entry_points_and_keeps_refund_cues(client):
+    page = client.get("/").text
+    for text in ("a tent, a sleeping bag and a lantern under $300", "my orders", "Refund this item",
+                 "Nothing is refunded until you click Confirm refund.", "nothing ships", "/api/progress"):
+        assert text in page
+    # Product text and images never go through innerHTML.
+    assert "innerHTML" not in page

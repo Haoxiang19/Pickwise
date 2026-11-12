@@ -1,6 +1,6 @@
 # Frontend work list (`static/index.html`)
 
-Status: written 2026-11-11, **nothing started**. One static HTML file with vanilla JavaScript stays the
+Status: written 2026-11-11. **Part A is done except A9 (2026-11-12); Part B not started.** One static HTML file with vanilla JavaScript stays the
 rule (`CLAUDE.md`). When an item is done, its facts move to `docs/implementation.md` and it is ticked here.
 
 The list has two parts, because they are done by different means:
@@ -33,29 +33,29 @@ A1. **Waiting message. DONE 2026-11-12** as real progress instead of a fixed tex
     `GET /api/progress` once a second and shows the agent's current step. See `docs/implementation.md`
     ("Agent progress shown while the page waits"). Part B still has to style the waiting bubble.
 
-A2. **No double send.** Pressing Enter while a request is running sends a second message: only the button
+A2. [done] **No double send.** Pressing Enter while a request is running sends a second message: only the button
     is disabled, the form still submits. Ignore submits while one is running.
 
-A3. **Example buttons** under the input, each sends its text as a chat message:
+A3. [done] **Example buttons** under the input, each sends its text as a chat message:
     `a tent, a sleeping bag and a lantern under $300`, `I always buy Sony`, `my orders`.
     Shown only while the conversation is empty.
 
-A4. **Refund buttons on an order card.** "Refund this item" on every line not refunded, and "Refund the rest"
+A4. [done] **Refund buttons on an order card.** "Refund this item" on every line not refunded, and "Refund the rest"
     when more than one line is left. They send `refund item N of order X` / `refund order X` to the chat, so
     the agent still drafts the refund (F16, F23) and money moves only on Confirm refund. Shown only for
     `COMPLETED` and `PARTIALLY_REFUNDED` orders.
 
-A5. **Compact order list.** When a reply carries more than one order, draw one line per order (ID, status,
+A5. [done] **Compact order list.** When a reply carries more than one order, draw one line per order (ID, status,
     amount, items) instead of a full card each. A single order keeps the full card.
 
-A6. **After-payment note.** On the result card of a paid order: this is a sandbox simulation, nothing
+A6. [done] **After-payment note.** On the result card of a paid order: this is a sandbox simulation, nothing
     ships, and the order can be checked or refunded here.
 
-A7. **Product images.** Recommendations and set options carry an `image` URL that the page never shows.
+A7. [done] **Product images.** Recommendations and set options carry an `image` URL that the page never shows.
     Show a small image on each card, with empty `alt` (the title is next to it) and a fixed size so the
     layout does not jump. Skip it when the URL is empty (mock catalog).
 
-A8. **Errors read as errors.** Failures are shown as a normal bot bubble starting with "Error:". Give them
+A8. [done] **Errors read as errors.** Failures are shown as a normal bot bubble starting with "Error:". Give them
     their own class so they can be styled as errors in Part B, and keep the server's message.
 
 A9. **Chat survives the PayPal round trip (optional, needs one endpoint).** After paying, the page reloads

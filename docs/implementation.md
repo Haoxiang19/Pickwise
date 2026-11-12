@@ -467,3 +467,24 @@ Result: `items` (name, quantity, chosen, alternatives), `total_cents` (server pr
 **Verified.** `tests/test_agent.py`: the steps of a recommendation are "Understanding your request", "Searching the catalog: ...", "Ranking N products (3 shuffled rankings)", "Writing the reply", and of a pick "Understanding your request", "Checking the current price", "Writing the reply"; the string is empty afterwards and also after a crash. `tests/test_api.py`: the endpoint is empty when idle and another browser never sees this user's step. By hand with real services (2026-11-12): a three-item set request showed, in order, understanding (1.3 s), one search step per item (3.3, 7.3, 11.3 s), ranking (15.3 s) and writing the reply (20.3 s); the bubble was gone when the reply arrived at 21.2 s.
 
 **Limits.** Polling once a second can skip a step shorter than that and shows a step up to a second late. One string per session: two requests of the same user at once would overwrite each other's step. The filter and the set choice take milliseconds and have no step of their own.
+
+## Page entry points (frontend plan A2-A8) (`static/index.html`)
+
+**What it does.** Makes the features reachable without knowing what to type, and tidies how the page reacts: example requests, refund buttons on an order, a compact order list, product pictures, a simulation note, an error style, and no second message while one is being answered.
+
+**Where.** `static/index.html`: `submitText`, `busy`, the `#examples` buttons, `showOrder` (refund buttons, note), `showOrderList`, `thumb`, `showError`.
+
+**How it works.**
+1. `submitText(text)` is the single way a message is sent, used by the form, the example buttons and the refund buttons. While a reply is pending (`busy`) it sends nothing and returns false, so Enter during a running request no longer posts a second message; the typed text stays in the input.
+2. Three example buttons under the chat send their own text ("a tent, a sleeping bag and a lantern under $300", "I always buy Sony", "my orders"). They are hidden after the first message and shown again by New conversation.
+3. On the card of a `COMPLETED` or `PARTIALLY_REFUNDED` order, every line not yet refunded has "Refund this item", and with more than one such line there is "Refund all N remaining items". A click sends `refund item N of order X` or `refund order X` as a chat message and disables the card's buttons. The agent drafts the refund as before (F16, F23); PayPal is called only by Confirm refund.
+4. The same cards carry the note "Sandbox simulation: the payment is recorded, but nothing ships. You can check or refund this order here."
+5. A reply with more than one order is drawn by `showOrderList` as one line per order with a Details button that draws the full card; a single order still gets the full card.
+6. `thumb(url)` adds a 64 px product picture to recommendation cards and set options. Only `https://` URLs are used, `alt` is empty because the title is next to it, and a picture that fails to load removes itself (the mock catalog's example URLs do not exist).
+7. `showError` writes failures with the class `error`, keeping the server's message.
+
+**Why.** The buttons send chat text rather than calling new endpoints, so there is still exactly one refund path (agent draft, then the user's Confirm refund) and nothing was added to the money code. Styling is the minimum needed to see the elements; the look of the page is left to the design pass (frontend plan, part B).
+
+**Verified.** `tests/test_api.py`: the page contains the example texts, the refund button label, the refund and simulation notes and the progress polling, and never uses `innerHTML`. By hand in keyless mode (driven through the page's own buttons): the set example hid the examples and a second send during the request was refused; a paid three-item order showed three "Refund this item" buttons, "Refund all 3 remaining items" and the note; "Refund this item" on line 2 sent "refund item 2 of order 22", the draft showed line 2 for $59.99 and Confirm refund gave `PARTIALLY_REFUNDED`; "Refund all 2 remaining items" drafted two lines and ended `REFUNDED` with no buttons or note left; "my orders" drew a five-line list and Details drew a card; a refused cart showed with the error class; the mock pictures removed themselves and there was no horizontal scroll. With real services: three recommendation cards each loaded a picture from Channel3's image host.
+
+**Limits.** Buttons on an older card are not updated when the order changes elsewhere; a stale click is answered by the agent or refused by the server. With several refundable orders the agent may still ask which one when the user types "refund this order"; the buttons always name the order. The chat is still cleared from the screen by the PayPal round trip (frontend plan A9, not done). No design pass yet.
