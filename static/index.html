@@ -589,6 +589,8 @@ function draw(entry) {
   } else if (entry.kind === "order") {
     if (entry.newTurn) agentTurn();
     showOrder(entry.order);
+  } else if (entry.kind === "error") {
+    showError({message: entry.message});
   }
 }
 
@@ -609,7 +611,8 @@ function submitText(text) {
   button.disabled = true;
   welcome.hidden = true;
   showView("chat");  // a refund button on the Orders view sends its request to the chat
-  send(text).catch(showError).finally(() => { busy = false; button.disabled = false; input.focus(); });
+  // A failed request is saved too, so after a reload the question is not left without an answer.
+  send(text).catch(err => record({kind: "error", message: err.message})).finally(() => { busy = false; button.disabled = false; input.focus(); });
   return true;
 }
 
@@ -665,10 +668,12 @@ async function loadOrders() {
   } catch (err) { list.textContent = ""; showError(err, list); }
 }
 
-// F20: view and delete saved preferences.
+// F20: view and delete saved preferences. Errors are shown on this page, not in the (hidden) chat.
 async function loadMemory() {
   const list = document.getElementById("memory-list");
-  const prefs = await api("/api/memory");
+  let prefs;
+  try { prefs = await api("/api/memory"); }
+  catch (err) { list.textContent = ""; showError(err, list.parentElement); return; }
   document.getElementById("memory-count").textContent = prefs.length || "";
   list.textContent = "";
   if (!prefs.length) emptyState(list, "i-mark", "Nothing yet. Tell me a lasting preference, e.g. \"I always buy Sony\".");
@@ -681,13 +686,14 @@ async function loadMemory() {
     del.setAttribute("aria-label", "Delete " + p.text);
     del.onclick = async () => {
       del.disabled = true;
-      try { await api("/api/memory/" + p.id, null, "DELETE"); } catch (err) { showError(err); }
-      loadMemory();
+      try { await api("/api/memory/" + p.id, null, "DELETE"); loadMemory(); }
+      catch (err) { del.disabled = false; showError(err, list.parentElement); }
     };
   }
 }
 
 document.getElementById("new-chat").onclick = async () => {
+  if (busy) return;  // a reply still on its way would otherwise land in the new conversation
   await api("/api/conversation/new", {});
   showView("chat");
   saved = [];
