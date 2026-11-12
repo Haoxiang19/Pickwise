@@ -228,6 +228,45 @@ def test_refund_request_only_drafts(monkeypatch):
     assert store.get_order(order["id"], "u1")["status"] == "COMPLETED"
 
 
+# --- What the user did on the page reaches the model through the system prompt ---
+
+def test_prompt_is_unchanged_for_a_user_with_no_orders_and_no_cart():
+    from app import store
+    s = store.get_session("fresh")
+    assert agent.activity_block(s) == ""
+    assert agent.system_prompt("fresh", s) == agent.system_prompt("fresh")  # the eval's step 1 sees the same prompt
+
+
+def test_prompt_shows_own_orders_with_lines_and_refunds_most_recent_first():
+    from app import checkout, store
+    s = store.get_session("u1")
+    order, rec = paid_order(s)
+    paid_order(store.get_session("someone-else"))
+    block = agent.activity_block(s)
+    assert f"Order #{order['id']} COMPLETED" in block and f"line 1: 1 x {rec['title'][:60]}" in block
+    assert block.count("Order #") == 1  # another user's order is not shown
+    checkout.refund("u1", order["id"], [1])
+    assert f"Order #{order['id']} REFUNDED" in agent.activity_block(s) and "(refunded)" in agent.activity_block(s)
+    assert "do not guess" in block and "untrusted" in block
+    assert agent.activity_block(s) in agent.system_prompt("u1", s)
+
+
+def test_prompt_shows_the_unpaid_summary_until_it_becomes_an_order():
+    from app import checkout, store
+    s = store.get_session("u1")
+    agent.handle_message(s, "noise cancelling headphones under $100")
+    pid = next(iter(s.products))
+    s.products[pid]["title"] = "T" * 200  # a long seller title is cut
+    cart = store.create_cart(s, pid, fetch=s.products.get)
+    block = agent.activity_block(s)
+    assert "Open order summary, not paid: 1 x " + "T" * 60 + "," in block and "Order #" not in block
+    checkout.confirm(s, "u1", cart["id"], "http://t")
+    block = agent.activity_block(s)
+    assert "Open order summary" not in block and "CREATED" in block
+    cart["expires_at"] = 0
+    assert "Open order summary" not in agent.activity_block(s)
+
+
 def test_get_orders_shows_line_numbers_and_refunded_lines():
     from app import checkout, store
     s = store.get_session("u1")

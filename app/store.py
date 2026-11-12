@@ -181,6 +181,14 @@ def get_order_by_cart(cart_id: str, user_id: str) -> dict | None:
         return _row(conn.execute("SELECT * FROM orders WHERE cart_id = ? AND user_id = ?", (cart_id, user_id)).fetchone())
 
 
+def recently_changed_orders(user_id: str, limit: int = 3) -> list[dict]:
+    """This user's orders, the one touched last first: what "this order" most likely means."""
+    with closing(_connect()) as conn:
+        rows = conn.execute("SELECT * FROM orders WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT ?",
+                            (user_id, limit)).fetchall()
+    return [_row(r) for r in rows]
+
+
 def list_orders(user_id: str, limit: int = 5) -> list[dict]:
     with closing(_connect()) as conn:
         rows = conn.execute("SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC LIMIT ?", (user_id, limit)).fetchall()
