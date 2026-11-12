@@ -142,6 +142,7 @@ Design decisions, with the open-source implementations compared, are in [docs/de
 <!-- DRAFT: please review and complete in your own words before submitting. -->
 
 - **Claude Code** was used as a coding assistant to write the code, tests and documentation, working feature by feature under the rules in `CLAUDE.md` (plan first, tests and an implementation note for every feature, no new dependencies or scope without approval). Every design choice was compared with open-source implementations first and recorded in `docs/decisions.md`.
+- **Impeccable** (a design skill for Claude Code) was used for the page design: it recorded the product context in `PRODUCT.md`, presented visual directions to choose from, ran a finish review against accessibility and the payment trust cues, and wrote `DESIGN.md` from the finished page. The look was chosen by the author over several comparison rounds. The skill itself is not included in this repository (`npx impeccable skills install`).
 - **At runtime**, the agent calls an OpenAI-compatible language model (planned: DeepSeek) for understanding the request, ranking candidates and writing replies.
 - Relevance labels for the evaluation are assigned by hand, not by a model.
 
