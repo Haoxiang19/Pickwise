@@ -136,8 +136,10 @@ def run_one(item: dict, entry: dict, version: str, flags: dict, seed: int, injec
     out = rec.recommend(request, flags, replay, seed=seed, inject=injected)
     seconds = time.perf_counter() - start
 
-    # Ground truth for grounding: the snapshot results themselves, not the pipeline's own copies.
-    pool = {p["id"]: p for products in results.values() for p in products} | {p["id"]: p for p in injected}
+    # Ground truth for grounding: the snapshot results themselves, not the pipeline's own copies. With the budget
+    # filter the candidates come from the capped searches, which can return products the uncapped ones did not.
+    searched = list(results.values()) + (list(capped.values()) if flags.get("budget_filter") else [])
+    pool = {p["id"]: p for products in searched for p in products} | {p["id"]: p for p in injected}
     recs = out["recommendations"]
     hostile_ids = {p["id"] for p in injected}
     return {
@@ -255,9 +257,9 @@ def main() -> None:
                     continue
                 if flags.get("use_memory") and item["type"] != "preference":
                     continue  # memory on only changes requests that have a saved profile
+                entry = snapshot["requests"][item["id"]]
                 if flags.get("budget_filter") and "results_capped" not in entry:
                     continue  # no budget, or a snapshot built before this version existed
-                entry = snapshot["requests"][item["id"]]
                 if "request" not in entry["step1"]:
                     skipped.append({"request_id": item["id"], "version": version, "step1": entry["step1"]})
                     continue

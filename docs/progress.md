@@ -1,6 +1,6 @@
 # Progress
 
-Read this first in a new session. Updated before every commit. Last update: 2026-11-11.
+Read this first in a new session. Updated before every commit. Last update: 2026-11-12.
 
 ## Done
 - Repo setup: MIT license, .gitignore, requirements.txt, `.env.example`.
@@ -39,41 +39,17 @@ Read this first in a new session. Updated before every commit. Last update: 2026
 - Catalog searches run in parallel (same results): 4 + 1 searches take about 4 s instead of 15 s, a three-item set about 3 s instead of 12 s; no 429 in 28 real requests.
 - State: 234 tests pass (`pytest`). Whole flow clicked through in the browser in keyless mode: ask budget, recommend, ruled-out list, refine, choose, Confirm, mock PayPal approve and cancel, success page, order status, refund, save a preference, new conversation using it, view and delete it.
 
-## In progress
-- M5 (F17-F20) was approved by the owner on 2026-11-11 and is done in keyless mode.
-- P2 "multiple items per order" is done in keyless mode as F21 (multi-item cart, PayPal line items), F22 (set recommendation) and F23 (refund by line), in 5 commits. The work order `docs/multi-item-plan.md` was deleted on 2026-11-11 after completion, as it asked; what was built is in `docs/implementation.md`, the research in `docs/decisions.md`, and the file remains in git history.
-
-## To do: make every feature visible on the page (owner approved the list, 2026-11-11; not started)
-**The full frontend list, including the design steps with Impeccable, is now in `docs/frontend-plan.md`; that file supersedes the short list below.** Impeccable is not installed yet (owner installs it).
-Found in the real run: a recommendation takes about 20 seconds with no feedback, and order status, refunds, sets
-and preferences can only be reached by typing the right sentence. Only `static/index.html` changes; no new
-endpoint, and payment and refund safety is untouched.
-1. **Waiting message**: right after a message is sent, show "Searching and ranking products... (about 20 seconds)"
-   and replace it with the reply.
-2. **Entry points**:
-   - example buttons under the input that send `a tent, a sleeping bag and a lantern under $300`,
-     `I always buy Sony` and `my orders`;
-   - on an order card, "Refund this item" per line and "Refund the rest", which send
-     `refund item N of order X` / `refund order X` to the chat, so the agent still drafts every refund (F16, F23)
-     and money moves only on Confirm refund.
-3. **Order lists**: when the agent calls `get_orders` only to find "this order", the page draws every listed order as a full card (5 cards for one refund). Show such a list compactly, one line per order. The order shown after the PayPal return is not in the chat history, which is why the agent had to look it up; the refund buttons from item 2 name the order explicitly.
-4. **Success page note**: say this is a sandbox simulation and nothing ships, and that the order can be checked or
-   refunded from the chat or the buttons.
+## Done on 2026-11-12 (page, eval, deploy prep)
+- Frontend plan `docs/frontend-plan.md` Part A done (A9: the conversation is kept in the browser across the PayPal round trip) and Part B design done with Impeccable: `PRODUCT.md`, `DESIGN.md`, the Pickwise look (sand and espresso), sidebar views Chat / Orders / What I remember, read-only `GET /api/orders`, one product row for picks and set options, one box per order (summaries and refund drafts give way to the order card), Pay again for a cancelled or failed order. See `docs/implementation.md`.
+- Real eval run (DeepSeek `deepseek-flash`, Channel3 snapshot `eval/snapshot.json` created 2026-11-12, 3 runs, no hand labels). Two eval bugs fixed in `eval/run_eval.py` (budget-filter grounding pool; skip check read the previous request). Results in the README.
+- Render Blueprint `render.yaml`; README deploy steps.
 
 ## Next steps for the owner (in order)
-1. Put keys in `.env` (copy `.env.example`; never commit it): `LLM_*`, `CHANNEL3_API_KEY`, `PAYPAL_CLIENT_ID/SECRET`. For DeepSeek set `LLM_EXTRA_BODY={"thinking": {"type": "disabled"}}`. Note: the app reads environment variables only; it does not load `.env` by itself (no extra dependency). Export them in the shell, or use `uvicorn --env-file .env` (needs the `python-dotenv` package, not installed).
-2. Check Channel3 with one real search, **before building the eval snapshot** (the snapshot stores normalized products, so a mapping bug would be baked into it). Print one raw response and confirm:
-   - the price is in dollars, and whether the field is `price.price` or `price.amount` (the code accepts both, but only one should be in use);
-   - which `availability` values actually occur (the code treats anything outside `OutOfStock`/`SoldOut`/`PreOrder`/`BackOrder` as buyable and logs unknown values once);
-   - that `brands[0].name`, `images[].is_main_image` and `category.title` are populated;
-   - what `GET /v1/products/{id}` returns (the product at the top level, or wrapped in `"product"`); the code accepts both;
-   - whether `offers[].url` and `max_commission_rate` are populated, and how many results carry a `variants` object with a `selected` entry. Both feed the deferred decisions below.
-   Budget: one eval snapshot costs roughly 230 search credits. The hackathon promo code `PAYPAL-HACKATHON-2026` gives a key 20,000 free credits, and Channel3 tops it up on request in the #channel3 channel of the PayPal Discord (sponsor page https://paypalaihackathon.devpost.com/details/channel3, read 2026-11-11); without the code the plan is 1,000 per month (each request is searched once per query, once on the raw text, and once per query capped at its budget), so do not rebuild it casually. There is no test key; every call is billed.
-3. Check DeepSeek function calling with the app: does it ask for the budget, call `recommend` with good queries, keep earlier conditions on refine.
-4. One real sandbox payment with a sandbox personal account (M2 done-criterion). Check: `payer-action` link, read-back status `APPROVED`, capture status, refund status. Make it a **two-item** order and refund **one line first, then the other**: that single run checks the line items in the create body (F21) and two refunds with an amount on one capture (F23).
-5. Impeccable design (`/impeccable init`, `craft`, `audit`), then deploy to Render with `APP_BASE_URL` set to the public URL.
-6. Real eval: `python -m eval.run_eval --name full` (with both model and Channel3 keys it creates `eval/snapshot.json` once), label `runs/full/to_label.json` into `eval/labels.json`, run again for NDCG@3. The table now has 5 versions (incl. + multi-shuffle and + memory) and a memory-adherence column.
-7. README is drafted: fill the Results table only from a real run, and rewrite the "AI tools used" draft section in your own words. Still missing for submission: the video, the public GitHub repo (nothing pushed), and the Devpost entry.
+1. Create an empty public GitHub repository and give its URL; then push (only on the owner's word).
+2. Deploy on Render from `render.yaml` (New > Blueprint), enter the four keys, then set `APP_BASE_URL` to the service URL and deploy again. Check the full flow on the public URL, including one sandbox payment.
+3. Rewrite in your own words: the README introduction and the "AI tools used" section (marked DRAFT).
+4. Optional: hand labels in `eval/labels.json` from `eval/runs/full/to_label.json` for NDCG@3.
+5. Record the video (3 minutes or less, public on YouTube) and submit on Devpost with the repository and demo links.
 
 ## Deferred until a real Channel3 key is connected
 
@@ -134,7 +110,7 @@ refuse the request, so a judge can always finish the flow (refusing would break 
 - Two partial refunds on one capture (F23, a multi-line order refunded line by line). Capture after approval and a single refund with an amount are verified.
 - Ranking JSON quality over many requests, and the eval on real data.
 - PayPal's real error body shape and the query parameters it appends to the return/cancel URLs.
-- Render deploy, phone-width layout on a real phone, `secure` cookie behind Render's proxy.
+- Render deploy, phone-width layout on a real phone, `secure` cookie behind Render's proxy (not deployed yet).
 
 ## Questions for the owner
 - **The margin for an approximate budget is 20%** (`recommend.APPROXIMATE_MARGIN`), so "around $70" allows up to $84, rounded up to a whole dollar. Chosen by the owner on 2026-11-11; change the constant to adjust.

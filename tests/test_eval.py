@@ -91,3 +91,19 @@ def test_hostile_listing_that_would_be_filtered_is_rejected():
     entry = {"step1": {"request": request}, "results": {"x": []}, "raw_results": []}
     with pytest.raises(ValueError, match="hard filter"):
         run_eval.run_one(item, entry, "v", {"multi_query": True, "reasoning_rank": False}, 1, run_eval.hostile_listings()["a01"])
+
+
+def test_budget_filter_products_from_capped_searches_count_as_grounded(monkeypatch):
+    # The capped search can return a product the uncapped search did not; it is still a real search result.
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    item = {"id": "c01", "type": "clear", "text": "earbuds under $80"}
+    base = {**product(price=5000), "url": "", "image": "", "description": "", "category": ""}
+    pricey = {**base, "id": "p1", "title": "Pricey earbuds", "price_cents": 9000}
+    cheap = {**base, "id": "c1", "title": "Cheap earbuds"}  # only in the capped results
+    request = {"raw_request": "earbuds", "budget_cents": 8000, "must_have": [], "must_not": [], "preferences": [], "queries": ["earbuds"]}
+    entry = {"step1": {"request": request}, "results": {"earbuds": [pricey]}, "raw_results": [pricey],
+             "results_capped": {"earbuds": [cheap]}}
+    flags = {"multi_query": True, "reasoning_rank": False, "budget_filter": True}
+    log = run_eval.run_one(item, entry, "+ budget filter", flags, seed=1, injected=[])
+    assert [r["id"] for r in log["recommended"]] == ["c1"]
+    assert log["grounded"] == [True] and log["constraint_ok"] == [True]

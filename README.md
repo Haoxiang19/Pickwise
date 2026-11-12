@@ -68,18 +68,30 @@ Other services: Channel3 product search (`POST https://api.trychannel3.com/v1/se
 
 ### Results
 
-**Not run yet.** No numbers will be written here until they come from a real run (real model and real Channel3 snapshot) and hand labels. Each result will be reported with the model name, snapshot date, number of runs, temperature and seeds, including any version that does not improve.
+Run on 2026-11-12. Model for step 1 and ranking: DeepSeek `deepseek-flash` (thinking disabled), temperature 0.0. Catalog: Channel3, replayed from [`eval/snapshot.json`](eval/snapshot.json) (created 2026-11-12), so every version sees the same products. Versions that call the model ran 3 times (seeds 101, 202, 303) and are averaged; the others ran once. **No hand labels yet, so NDCG@3 is not reported.**
 
-| Version | Constraints | Grounding | Over-budget | Injection resistance | NDCG@3 | Memory adherence | Sec / request | Model calls |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Baseline | | | | | | | | |
-| + multi-query search | | | | | | | | |
-| + reasoning rank | | | | | | | | |
-| + multi-shuffle | | | | | | | | |
-| + budget filter | | | | | | | | |
-| + memory (preference tests) | | | | | | | | |
+24 of the 31 requests are ranked: the 5 missing-budget requests only test the budget question, and 2 gift requests (`g03`, `g04`) were skipped because step 1 did not turn them into a search request.
 
-Ask accuracy (step 1, 31 requests): not run yet. The sample is small; differences of a few percentage points should not be read as real.
+| Version | Full top 3 | Constraints | Grounding | Over-budget | Injection resistance | Memory adherence | Sec / request | Model calls | Tokens |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Baseline | 17 / 24 | 100% | 100% | 0 | 0% | 0% | - | 0 | 0 |
+| + multi-query search | 24 / 24 | 100% | 100% | 0 | 0% | 25% | - | 0 | 0 |
+| + reasoning rank | 24 / 24 | 100% | 100% | 0 | 100% | 25% | 3.97 | 1 | 2,242 |
+| + multi-shuffle (3) | 24 / 24 | 100% | 100% | 0 | 100% | 25% | 4.60 | 3 | 6,740 |
+| + budget filter | 24 / 24 | 100% | 100% | 0 | 100% | 25% | 3.96 | 1 | 2,500 |
+| + memory (preference tests only) | 4 / 4 | 100% | 100% | 0 | - | 50% | 3.82 | 1 | 2,509 |
+
+Columns: *Full top 3* counts requests that got three recommendations. *Injection resistance* is over the 4 adversarial requests, *memory adherence* over the 4 preference requests (top pick matches the saved preference). Time, calls and tokens are per request for the ranking steps only; searches are replayed from the snapshot, so search time is not included.
+
+Ask accuracy (step 1 live on all 31 requests): **94%** (31 model calls, about 76k input and 3.7k output tokens).
+
+What the numbers say, and what they do not:
+
+- **Multi-query search fills the top 3.** One search with the user's raw words returned fewer than three usable products for 7 of 24 requests (none at all for 3); 3 to 4 generated queries gave three for every request.
+- **Constraints, grounding and over-budget are perfect in every version** because the hard filter runs in code before any ranking. They confirm the safety design; they do not separate the versions.
+- **Reasoning rank kept every hostile listing out of the top 3** in all runs. The search-order versions show 0% only because the hostile listings are placed first (worst case), not because they "chose" them.
+- **Memory:** with the saved preference on, the top pick matched it in 50% of runs, against 25% without (4 requests x 3 runs: a small sample).
+- **Multi-shuffle and the budget filter show no difference on these automatic metrics**, while multi-shuffle triples model calls and tokens. Whether either improves relevance needs the hand labels (NDCG@3), which are not done.
 
 ## Run locally
 
